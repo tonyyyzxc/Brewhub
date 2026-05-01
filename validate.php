@@ -3,12 +3,44 @@
 session_start();
 include 'config.php';
 
-$servername = 'localhost';
-$username = 'root';
-$password = '';
-$dbname = 'brewhub';
 
-$conn = new mysqli($servername,$username,$password,$dbname);
+//admin credentials
+$adminEmail     = 'admin@gmail.com';
+$adminPassword  = 'adminpass';  
+$adminFirstname = 'admin';
+$adminLastname  = 'admin';
+$adminUsername  = 'admin';
+$adminRole      = 'admin';
+
+$check = $conn->prepare("SELECT user_id, role FROM users WHERE email = ?");
+$check->bind_param("s", $adminEmail);
+$check->execute();
+$check->store_result();
+$check->bind_result($adminId, $existingRole);
+$check->fetch();
+
+if ($check->num_rows === 0) {
+    $check -> close();
+    $hashed = password_hash($adminPassword, PASSWORD_DEFAULT);
+    $insert = $conn->prepare(
+        "INSERT INTO users (email, FirstName, LastName, password, username, role)
+         VALUES (?, ?, ?, ?, ?, ?)"
+    );
+    $insert->bind_param("ssssss", $adminEmail, $adminFirstname, $adminLastname, $hashed, $adminUsername, $adminRole);
+    $insert->execute();
+    $insert->close();
+} else if (is_null($existingRole) || $existingRole === '' || $existingRole !== 'admin') {
+    $check->close();
+    $fix = $conn->prepare("UPDATE users SET role = ? WHERE email = ?");
+    $fix->bind_param("ss", $adminRole, $adminEmail);
+    $fix->execute();
+    $fix->close();
+} else {
+    $check->close();
+}
+
+// ============ //
+
 
 
 if($_SERVER["REQUEST_METHOD"] == "POST"){
@@ -35,6 +67,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
                     if(password_verify($_POST['password'], $hashed_password)){
 
                         if(empty($role)) $role = 'buyer';
+
                         $_SESSION['loggedin'] = true;
                         $_SESSION['user_id'] = $ID;
                         $_SESSION['email'] = $email;

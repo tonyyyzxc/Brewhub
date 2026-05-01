@@ -2,85 +2,57 @@
 declare(strict_types=1);
 
 session_start();
+require '../config.php'; 
 
-$usersRaw = $_SESSION['bh_users'] ?? [];
-$productsRaw = $_SESSION['bh_products'] ?? [];
-$requestsRaw = $_SESSION['bh_seller_requests'] ?? [];
+// Guard: only admin can access
+if (!isset($_SESSION['loggedin']) || $_SESSION['role'] !== 'admin') {
+    header("Location: ../Login.php");
+    exit();
+}
 
-$usersRaw = is_array($usersRaw) ? array_values($usersRaw) : [];
-$productsRaw = is_array($productsRaw) ? array_values($productsRaw) : [];
-$requestsRaw = is_array($requestsRaw) ? array_values($requestsRaw) : [];
-
+// Total Users (excluding admin)
 $totalUsers = 0;
+$result = $conn->query("SELECT COUNT(*) AS cnt FROM users WHERE role != 'admin'");
+if ($row = $result->fetch_assoc()) $totalUsers = (int) $row['cnt'];
+
+// Total Sellers
 $totalSellers = 0;
-$recentUsers = [];
-foreach ($usersRaw as $u) {
-	if (!is_array($u)) {
-		continue;
-	}
-	$id = (int) ($u['id'] ?? $u['ID'] ?? 0);
-	if ($id <= 0) {
-		continue;
-	}
-	$totalUsers++;
-	$role = strtolower((string) ($u['role'] ?? ''));
-	if ($role === 'seller') {
-		$totalSellers++;
-	}
-	$recentUsers[] = [
-		'id' => $id,
-		'name' => (string) ($u['username'] ?? $u['name'] ?? ''),
-		'email' => (string) ($u['email'] ?? ''),
-		'role' => (string) ($u['role'] ?? ''),
-		'status' => (string) ($u['status'] ?? 'Active'),
-	];
-}
+$result = $conn->query("SELECT COUNT(*) AS cnt FROM users WHERE role = 'seller'");
+if ($row = $result->fetch_assoc()) $totalSellers = (int) $row['cnt'];
 
+// Total Products
 $totalProducts = 0;
-foreach ($productsRaw as $p) {
-	if (!is_array($p)) {
-		continue;
-	}
-	$id = (int) ($p['id'] ?? 0);
-	if ($id <= 0) {
-		continue;
-	}
-	$totalProducts++;
-}
+$result = $conn->query("SELECT COUNT(*) AS cnt FROM products");
+if ($row = $result->fetch_assoc()) $totalProducts = (int) $row['cnt'];
 
+// Pending Orders (using orders table instead of seller_requests)
 $pendingRequests = 0;
-$recentRequests = [];
-foreach ($requestsRaw as $r) {
-	if (!is_array($r)) {
-		continue;
-	}
-	$id = (int) ($r['id'] ?? $r['request_id'] ?? 0);
-	if ($id <= 0) {
-		continue;
-	}
-	$status = strtolower((string) ($r['status'] ?? 'Pending'));
-	if ($status === 'pending') {
-		$pendingRequests++;
-	}
-	$recentRequests[] = [
-		'id' => $id,
-		'seller' => (string) ($r['username'] ?? $r['seller'] ?? $r['name'] ?? ''),
-		'shop' => (string) ($r['shop_name'] ?? $r['shop'] ?? ''),
-		'created_at' => (string) ($r['created_at'] ?? ''),
-		'status' => (string) ($r['status'] ?? 'Pending'),
-	];
-}
+$result = $conn->query("SELECT COUNT(*) AS cnt FROM orders WHERE status = 'pending'");
+if ($row = $result->fetch_assoc()) $pendingRequests = (int) $row['cnt'];
 
-$recentUsers = array_slice(array_reverse($recentUsers), 0, 3);
-$recentRequests = array_slice(array_reverse($recentRequests), 0, 3);
+// Recent Users (last 3)
+$recentUsers = [];
+$result = $conn->query("SELECT user_id, userName, email, role, 'Active' AS status 
+                        FROM users WHERE role != 'admin' 
+                        ORDER BY user_id DESC LIMIT 3");
+while ($row = $result->fetch_assoc()) $recentUsers[] = $row;
+
+// Recent Orders (last 3) — replacing seller_requests
+$recentRequests = [];
+$result = $conn->query("SELECT o.order_id, u.userName, o.total_amount, o.order_date AS created_at, o.status 
+                        FROM orders o
+                        JOIN users u ON o.buyer_id = u.user_id
+                        ORDER BY o.order_id DESC LIMIT 3");
+while ($row = $result->fetch_assoc()) $recentRequests[] = $row;
 
 $finalTotals = [
-	'total_users' => (int) $totalUsers,
-	'total_sellers' => (int) $totalSellers,
-	'total_products' => (int) $totalProducts,
-	'pending_requests' => (int) $pendingRequests,
+    'total_users'      => $totalUsers,
+    'total_sellers'    => $totalSellers,
+    'total_products'   => $totalProducts,
+    'pending_requests' => $pendingRequests,
 ];
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">
@@ -103,7 +75,7 @@ $finalTotals = [
 			<div class="admin-topbar-actions">
 				<a class="btn bh-icon-btn position-relative" href="#" aria-label="Notifications">
 					<i class="bi bi-bell"></i>
-					<span class="bh-cart-count" aria-hidden="true">3</span>
+					<span class="bh-cart-count" aria-hidden="true"><?php echo $pendingRequests; ?></span>
 				</a>
 				<a class="btn bh-icon-btn" href="#" aria-label="Settings">
 					<i class="bi bi-gear"></i>
@@ -220,7 +192,7 @@ $finalTotals = [
 										<?php else: ?>
 											<?php foreach ($recentUsers as $u): ?>
 												<?php
-													$name = (string) ($u['name'] ?? '');
+													$name = (string) ($u['username'] ?? '');
 													$email = (string) ($u['email'] ?? '');
 													$role = (string) ($u['role'] ?? '');
 													$status = (string) ($u['status'] ?? 'Active');

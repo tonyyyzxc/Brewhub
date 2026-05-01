@@ -2,64 +2,69 @@
 declare(strict_types=1);
 
 session_start();
+require '../config.php';
 
+// ✅ Correct session keys matching validate.php
 $loggedIn = (bool) ($_SESSION['loggedin'] ?? false);
-$userId = (int) ($_SESSION['ID'] ?? 0);
+$userId   = (int) ($_SESSION['user_id'] ?? 0); // ✅ fixed
 
 if (!$loggedIn || $userId <= 0) {
-	header('Location: Login.php');
-	exit;
+    header('Location: ../Login.php');
+    exit;
 }
 
-if (!isset($_SESSION['bh_cart']) || !is_array($_SESSION['bh_cart'])) {
-	$_SESSION['bh_cart'] = [];
-}
-
-$message = '';
-$showToast = false;
-$toastMessage = '';
-$toastType = 'success';
-$isEditMode = false;
+$cartCount = 0; // TODO: replace with DB cart query
 
 $profile = [
-	'username' => (string) ($_SESSION['username'] ?? ''),
-	'fullname' => (string) ($_SESSION['fullname'] ?? ''),
-	'email' => (string) ($_SESSION['email'] ?? ''),
+    'username' => (string) ($_SESSION['userName'] ?? ''), // ✅ fixed
+    'fullname' => (string) ($_SESSION['fullName'] ?? ''), // ✅ fixed
+    'email'    => (string) ($_SESSION['email']    ?? ''),
+    'role'     => (string) ($_SESSION['role']     ?? 'buyer'),
 ];
 
 // Handle form submission
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-	if ($_POST['action'] === 'edit') {
-		$isEditMode = true;
-	} elseif ($_POST['action'] === 'save') {
-		$username = trim($_POST['username'] ?? '');
-		$fullname = trim($_POST['fullname'] ?? '');
-		$email = trim($_POST['email'] ?? '');
-		
-		if (!empty($username) && !empty($fullname) && !empty($email)) {
-			$_SESSION['username'] = $username;
-			$_SESSION['fullname'] = $fullname;
-			$_SESSION['email'] = $email;
-			$profile = [
-				'username' => $username,
-				'fullname' => $fullname,
-				'email' => $email,
-			];
+$showToast    = false;
+$toastMessage = '';
+$toastType    = 'success';
+$isEditMode   = false;
 
-			$showToast = true;
-			$toastMessage = 'Profile updated successfully!';
-			$toastType = 'success';
-		} else {
-			$showToast = true;
-			$toastMessage = 'All fields are required.';
-			$toastType = 'danger';
-			$isEditMode = true;
-		}
-	} elseif ($_POST['action'] === 'cancel') {
-		$isEditMode = false;
-	}
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    if ($_POST['action'] === 'edit') {
+        $isEditMode = true;
+    } elseif ($_POST['action'] === 'save') {
+        $username = trim($_POST['username'] ?? '');
+        $fullname = trim($_POST['fullname'] ?? '');
+        $email    = trim($_POST['email']    ?? '');
+
+        if (!empty($username) && !empty($fullname) && !empty($email)) {
+            // ✅ Update DB
+            $stmt = $conn->prepare("UPDATE users SET username = ?, FirstName = ?, email = ? WHERE user_id = ?");
+            $stmt->bind_param("sssi", $username, $fullname, $email, $userId);
+            $stmt->execute();
+            $stmt->close();
+
+            // ✅ Update session
+            $_SESSION['userName'] = $username;
+            $_SESSION['fullName'] = $fullname;
+            $_SESSION['email']    = $email;
+
+            $profile['username'] = $username;
+            $profile['fullname'] = $fullname;
+            $profile['email']    = $email;
+
+            $showToast    = true;
+            $toastMessage = 'Profile updated successfully!';
+            $toastType    = 'success';
+        } else {
+            $showToast    = true;
+            $toastMessage = 'All fields are required.';
+            $toastType    = 'danger';
+            $isEditMode   = true;
+        }
+    } elseif ($_POST['action'] === 'cancel') {
+        $isEditMode = false;
+    }
 }
-$cartCount = array_sum(array_map('intval', (array) $_SESSION['bh_cart']));
 ?>
 
 <!DOCTYPE html>
