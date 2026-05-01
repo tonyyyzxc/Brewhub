@@ -152,7 +152,7 @@ $total = $subtotal + $shippingFee;
       <a class="navbar-brand bh-brand" href="Dashboard.php">Brewhub</a>
 
       <div class="d-flex align-items-center gap-2 order-md-3 bh-nav-actions">
-        <a class="btn bh-icon-btn" href="../Profile.php" aria-label="Profile">
+        <a class="btn bh-icon-btn" href="../Buyer/Profile.php" aria-label="Profile">
           <i class="bi bi-person"></i>
         </a>
         <a class="btn bh-icon-btn position-relative active" href="Cart.php" aria-label="Cart">
