@@ -27,7 +27,48 @@
 					</header>
 
 					<form id="signupForm" method="POST" autocomplete="off">
-						
+	
+						<div class="mb-2">
+                		<!-- 'for' must match the 'id' of the input below -->
+                			<label for="Firstname" class="form-label">First Name</label>
+                			<input id="Firstname" name="Firstname" type="text" class="form-control" required>
+           				 </div>
+
+            			<div class="mb-2">
+               			 	<label for="Lastname" class="form-label">Last Name</label>
+               			 	<input id="Lastname" name="Lastname" type="text" class="form-control" required>
+            			</div>
+
+						<div class="mb-2">
+							<label for="username" class="form-label">Username</label>
+							<input id="username" name="username" type="text" class="form-control" required>
+						</div>
+
+						<div class="mb-3">
+							<label for="email" class="form-label">Email</label>
+							<input id="email" name="email" type="email" class="form-control border-0 border-bottom rounded-0" required>
+						</div>
+
+						<div class="mb-3">
+							<label for="password" class="form-label">Password</label>
+							<input id="password" name="password" type="password" class="form-control border-0 border-bottom rounded-0" required>
+						</div>
+
+						<button type="submit" class="btn btn-login w-100">Sign Up</button>
+					</form>
+
+					<div class="or-divider" aria-hidden="true"><span>OR</span></div>
+
+					<div class="social-row"> 	
+						<a class="social-btn" href="#"><i class="bi bi-google"></i> Sign in with Google</a>
+					</div>
+
+					<p class="signup-note">Already have an account? <a href="Login.php">Log In</a></p>
+				</div>
+			</section>
+		</div>
+	</main>
+
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 	document.getElementById('signupForm').addEventListener('submit', function(e) {
@@ -80,40 +121,5 @@
 		});
 	});
 </script>
-
-						<div class="mb-2">
-							<label for="fullname" class="form-label">Full Name</label>
-							<input id="fullname" name="fullname" type="text" class="form-control" autocomplete="name" required>
-						</div>
-
-						<div class="mb-2">
-							<label for="username" class="form-label">Username</label>
-							<input id="username" name="username" type="text" class="form-control" required>
-						</div>
-
-						<div class="mb-3">
-							<label for="email" class="form-label">Email</label>
-							<input id="email" name="email" type="email" class="form-control border-0 border-bottom rounded-0" required>
-						</div>
-
-						<div class="mb-3">
-							<label for="password" class="form-label">Password</label>
-							<input id="password" name="password" type="password" class="form-control border-0 border-bottom rounded-0" required>
-						</div>
-
-						<button type="submit" class="btn btn-login w-100">Sign Up</button>
-					</form>
-
-					<div class="or-divider" aria-hidden="true"><span>OR</span></div>
-
-					<div class="social-row"> 	
-						<a class="social-btn" href="#"><i class="bi bi-google"></i> Sign in with Google</a>
-					</div>
-
-					<p class="signup-note">Already have an account? <a href="Login.php">Log In</a></p>
-				</div>
-			</section>
-		</div>
-	</main>
 </body>
 </html>

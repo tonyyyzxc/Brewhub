@@ -27,7 +27,7 @@
 						<p>Your Shop's One-Stop Supply</p>
 					</header>
 
-					<form id="loginForm" method="post" autocomplete="off">
+					<form id="loginForm" method="post">
 
 					<div class="mb-3">
 							<label for="email" class="form-label">Email</label>

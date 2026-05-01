@@ -1,6 +1,7 @@
 <?php
 
 session_start();
+include 'config.php';
 
 $servername = 'localhost';
 $username = 'root';
@@ -14,7 +15,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
     
     if(isset($_POST['email']) && isset($_POST['password']) && !empty($_POST['email']) && !empty($_POST['password'])){
 
-    $sql = "SELECT user_id, email, fullName, password, userName, role FROM users where email = ?";
+    $sql = "SELECT user_id, email, FirstName, LastName, password, username, role FROM users where email = ?";
 
     if($stmt = $conn->prepare($sql)){
         $stmt->bind_param("s", $param_email);
@@ -27,20 +28,20 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
 
             if($stmt->num_rows == 1){
 
-                $stmt->bind_result($ID, $email, $name, $hashed_password, $username, $role);
+                $stmt->bind_result($ID, $email, $firstname, $lastname, $hashed_password, $username, $role);
 
                 if($stmt->fetch()){
                     
                     if(password_verify($_POST['password'], $hashed_password)){
 
+                        if(empty($role)) $role = 'buyer';
                         $_SESSION['loggedin'] = true;
-                        $_SESSION['ID'] = $ID;
+                        $_SESSION['user_id'] = $ID;
                         $_SESSION['email'] = $email;
-                        $_SESSION['fullName'] = $name;
+                        $_SESSION['fullName'] = $firstname;
                         $_SESSION['userName'] = $username;
                         $_SESSION['role'] = $role;
 
-                        if(empty($role)) $role = 'buyer';
 
                         if($role == 'admin'){
                             echo json_encode(['status' => 'success', 'redirect' => 'admin/admin.php']);

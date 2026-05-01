@@ -2,7 +2,7 @@
 session_start();
 require 'config.php';
 
-$email = $_SESSION['verified_email'];
+$email = $_SESSION['reset_email'];
 $error = '';
 $success = '';
 
@@ -22,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->bind_param('ss', $hashedPassword, $email);
 
         if ($stmt->execute()) {
-            unset($_SESSION['verified_email'], $_SESSION['email']);
+            unset($_SESSION['reset_email'], $_SESSION['email']);
             $_SESSION['success'] = 'Your password has been reset. Please log in with your new password.';
             header('Location: Login.php');
             exit();

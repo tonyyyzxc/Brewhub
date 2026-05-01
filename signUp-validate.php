@@ -5,7 +5,8 @@ include 'config.php';
 
 
 if($_SERVER["REQUEST_METHOD"] == "POST"){
-    $name = $_POST['fullname'];
+    $firstname = $_POST['Firstname'];
+    $lastname = $_POST['Lastname'];
     $email = $_POST['email'];
     $password = $_POST['password'];
     $username = $_POST['username'];
@@ -32,9 +33,9 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
        
         $stmt->close();
 
-        $stmt = $conn->prepare("INSERT INTO users (fullName, email, password, userName, role) VALUES (?, ?, ?, ?, ?)");
+        $stmt = $conn->prepare("INSERT INTO users (FirstName, LastName, email, password, username, role) VALUES (?, ?, ?, ?, ?, ?)");
         $role = 'buyer';
-        $stmt->bind_param("sssss", $name, $email, $hashed_password, $username, $role);
+        $stmt->bind_param("ssssss", $firstname, $lastname, $email, $hashed_password, $username, $role);
 
         if($stmt->execute()){
             echo json_encode(['status' => 'success', 'message' => 'Account created successfully!']);
