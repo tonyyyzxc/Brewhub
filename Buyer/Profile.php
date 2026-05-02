@@ -4,9 +4,8 @@ declare(strict_types=1);
 session_start();
 require '../config.php';
 
-// Guard
 $loggedIn = (bool) ($_SESSION['loggedin'] ?? false);
-$userId   = (int) ($_SESSION['user_id'] ?? 0);
+$userId   = (int)  ($_SESSION['user_id']  ?? 0);
 
 if (!$loggedIn || $userId <= 0) {
     header('Location: ../Login.php');
@@ -16,13 +15,13 @@ if (!$loggedIn || $userId <= 0) {
 $cartCount = 0;
 
 $profile = [
-    'username' => (string) ($_SESSION['userName'] ?? ''),
-    'fullname' => (string) ($_SESSION['fullName'] ?? ''),
-    'email'    => (string) ($_SESSION['email']    ?? ''),
-    'role'     => (string) ($_SESSION['role']     ?? 'buyer'),
+    'username'  => (string) ($_SESSION['userName']  ?? ''),
+    'FirstName' => (string) ($_SESSION['FirstName'] ?? ''),
+    'LastName'  => (string) ($_SESSION['LastName']  ?? ''),
+    'email'     => (string) ($_SESSION['email']     ?? ''),
+    'role'      => (string) ($_SESSION['role']      ?? 'buyer'),
 ];
 
-// Handle form submission
 $showToast    = false;
 $toastMessage = '';
 $toastType    = 'success';
@@ -32,25 +31,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if ($_POST['action'] === 'edit') {
         $isEditMode = true;
     } elseif ($_POST['action'] === 'save') {
-        $username = trim($_POST['username'] ?? '');
-        $fullname = trim($_POST['fullname'] ?? '');
-        $email    = trim($_POST['email']    ?? '');
+        $username  = trim($_POST['username']   ?? '');
+        $firstname = trim($_POST['first_name'] ?? '');
+        $lastname  = trim($_POST['last_name']  ?? '');
+        $email     = trim($_POST['email']      ?? '');
 
-        if (!empty($username) && !empty($fullname) && !empty($email)) {
-            // Update DB
-            $stmt = $conn->prepare("UPDATE users SET username = ?, FirstName = ?, email = ? WHERE user_id = ?");
-            $stmt->bind_param("sssi", $username, $fullname, $email, $userId);
+        if (!empty($username) && !empty($firstname) && !empty($lastname) && !empty($email)) {
+            $stmt = $conn->prepare("UPDATE users SET username = ?, FirstName = ?, LastName = ?, email = ? WHERE user_id = ?");
+            $stmt->bind_param("ssssi", $username, $firstname, $lastname, $email, $userId);
             $stmt->execute();
             $stmt->close();
 
-            // Update session
-            $_SESSION['userName'] = $username;
-            $_SESSION['fullName'] = $fullname;
-            $_SESSION['email']    = $email;
+            $_SESSION['userName']  = $username;
+            $_SESSION['firstname'] = $firstname;
+            $_SESSION['lastname']  = $lastname;
+            $_SESSION['email']     = $email;
 
-            $profile['username'] = $username;
-            $profile['fullname'] = $fullname;
-            $profile['email']    = $email;
+            $profile['username']  = $username;
+            $profile['FirstName'] = $firstname;
+            $profile['LastName']  = $lastname;
+            $profile['email']     = $email;
 
             $showToast    = true;
             $toastMessage = 'Profile updated successfully!';
@@ -79,7 +79,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 </head>
 <body class="dashboard-page">
 
-    <!-- Navbar -->
     <nav class="navbar navbar-expand-md navbar-light fixed-top bh-navbar">
         <div class="container-fluid px-4 px-lg-5 bh-nav-container">
             <a class="navbar-brand bh-brand" href="Dashboard.php">Brewhub</a>
@@ -124,7 +123,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         </div>
     </nav>
 
-    <!-- Profile Content -->
     <main class="profile-page-main py-5">
         <div class="container profile-container">
             <div class="row justify-content-center">
@@ -139,7 +137,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                             </div>
 
                             <?php if ($isEditMode): ?>
-                            <!-- Edit Mode -->
                             <form method="POST" class="mb-4">
                                 <input type="hidden" name="action" value="save">
                                 <div class="profile-info-list mb-4">
@@ -148,11 +145,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                                         <input type="text" name="username" class="form-control"
                                             value="<?php echo htmlspecialchars($profile['username'], ENT_QUOTES, 'UTF-8'); ?>" required>
                                     </div>
+
                                     <div class="profile-info-item flex-column align-items-start">
-                                        <label class="profile-info-label mb-2"><i class="bi bi-person-vcard me-2"></i>Full Name</label>
-                                        <input type="text" name="fullname" class="form-control"
-                                            value="<?php echo htmlspecialchars($profile['fullname'], ENT_QUOTES, 'UTF-8'); ?>" required>
+                                        <label class="profile-info-label mb-2"><i class="bi bi-person-vcard me-2"></i>First Name</label>
+                                        <input type="text" name="first_name" class="form-control"
+                                            value="<?php echo htmlspecialchars($profile['FirstName'], ENT_QUOTES, 'UTF-8'); ?>" required>
                                     </div>
+
+                                    <div class="profile-info-item flex-column align-items-start">
+                                        <label class="profile-info-label mb-2"><i class="bi bi-person-vcard me-2"></i>Last Name</label>
+                                        <input type="text" name="last_name" class="form-control"
+                                            value="<?php echo htmlspecialchars($profile['LastName'], ENT_QUOTES, 'UTF-8'); ?>" required>
+                                    </div>
+
                                     <div class="profile-info-item flex-column align-items-start">
                                         <label class="profile-info-label mb-2"><i class="bi bi-envelope me-2"></i>Email Address</label>
                                         <input type="email" name="email" class="form-control"
@@ -171,20 +176,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                             </form>
 
                             <?php else: ?>
-                            <!-- View Mode -->
                             <div class="profile-info-list mb-4">
                                 <div class="profile-info-item">
                                     <div class="profile-info-label"><i class="bi bi-at me-2"></i>Username</div>
                                     <div class="profile-info-value">@<?php echo htmlspecialchars($profile['username'], ENT_QUOTES, 'UTF-8'); ?></div>
                                 </div>
+
                                 <div class="profile-info-item">
-                                    <div class="profile-info-label"><i class="bi bi-person-vcard me-2"></i>Full Name</div>
-                                    <div class="profile-info-value"><?php echo htmlspecialchars($profile['fullname'], ENT_QUOTES, 'UTF-8'); ?></div>
+                                    <div class="profile-info-label"><i class="bi bi-person-vcard me-2"></i>First Name</div>
+                                    <div class="profile-info-value"><?php echo htmlspecialchars($profile['FirstName'], ENT_QUOTES, 'UTF-8'); ?></div>
                                 </div>
+
+                                <div class="profile-info-item">
+                                    <div class="profile-info-label"><i class="bi bi-person-vcard me-2"></i>Last Name</div>
+                                    <div class="profile-info-value"><?php echo htmlspecialchars($profile['LastName'], ENT_QUOTES, 'UTF-8'); ?></div>
+                                </div>
+
                                 <div class="profile-info-item">
                                     <div class="profile-info-label"><i class="bi bi-envelope me-2"></i>Email Address</div>
                                     <div class="profile-info-value"><?php echo htmlspecialchars($profile['email'], ENT_QUOTES, 'UTF-8'); ?></div>
                                 </div>
+
                                 <div class="profile-info-item">
                                     <div class="profile-info-label"><i class="bi bi-shield me-2"></i>Role</div>
                                     <div class="profile-info-value"><?php echo htmlspecialchars(ucfirst($profile['role']), ENT_QUOTES, 'UTF-8'); ?></div>
@@ -199,8 +211,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                                             <i class="bi bi-pencil-square me-2"></i>Edit Profile
                                         </button>
                                     </form>
-                                    <a class="btn profile-btn profile-btn-seller"
-                                        href="../BecomeSeller.php?fullname=<?php echo urlencode($profile['fullname']); ?>&email=<?php echo urlencode($profile['email']); ?>">
+                                    <a class="btn profile-btn profile-btn-seller" href="../BecomeSeller.php">
                                         <i class="bi bi-shop me-2"></i>Become a Seller
                                     </a>
                                 </div>
@@ -217,7 +228,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         </div>
     </main>
 
-    <!-- Footer -->
     <footer class="bh-footer-bar px-4 px-lg-5 py-4 mt-5">
         <div class="container-fluid bh-footer-bar-container">
             <div class="bh-footer-bar-left">
@@ -244,7 +254,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         </div>
     </footer>
 
-    <!-- Toast -->
     <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:9999;">
         <div id="profileToast" class="toast align-items-center text-white border-0" role="alert"
             style="background-color: <?php echo $toastType === 'success' ? '#2fc31f' : '#dc3545'; ?>;">

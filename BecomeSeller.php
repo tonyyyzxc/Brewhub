@@ -3,25 +3,21 @@ if (session_status() === PHP_SESSION_NONE) {
 	session_start();
 }
 
-$fullName = '';
-$email = '';
+$firstName = '';
+$lastName  = '';
+$email     = '';
 
 if (!empty($_SESSION['loggedin'])) {
-	$fullName = (string) ($_SESSION['fullname'] ?? '');
-	$email = (string) ($_SESSION['email'] ?? '');
+	$firstName = (string) ($_SESSION['FirstName'] ?? '');
+	$lastName  = (string) ($_SESSION['LastName']  ?? '');
+	$email     = (string) ($_SESSION['email']     ?? '');
 }
 
-if ($fullName === '' && isset($_GET['fullname'])) {
-	$fullName = (string) $_GET['fullname'];
-}
-if ($email === '' && isset($_GET['email'])) {
-	$email = (string) $_GET['email'];
-}
+$firstName = trim($firstName);
+$lastName  = trim($lastName);
+$email     = trim($email);
 
-$fullName = trim($fullName);
-$email = trim($email);
-
-if ($fullName === '' || $email === '') {
+if ($firstName === '' || $lastName === '' || $email === '') {
 	header('Location: Login.php');
 	exit;
 }
@@ -48,7 +44,7 @@ $cartCount = array_sum(array_map('intval', (array) $_SESSION['bh_cart']));
 			<a class="navbar-brand bh-brand" href="Buyer/Dashboard.php">Brewhub</a>
 
 			<div class="d-flex align-items-center gap-2 order-md-3 bh-nav-actions">
-				<a class="btn bh-icon-btn" href=" Buyer/Profile.php" aria-label="Profile">
+				<a class="btn bh-icon-btn" href="Buyer/Profile.php" aria-label="Profile">
 					<i class="bi bi-person"></i>
 				</a>
 				<a class="btn bh-icon-btn position-relative" href="Buyer/Cart.php" aria-label="Cart">
@@ -91,14 +87,19 @@ $cartCount = array_sum(array_map('intval', (array) $_SESSION['bh_cart']));
 							<h1 class="seller-title mb-2">Apply to Become a Seller</h1>
 							<p class="seller-intro mb-4">Start selling your coffee products. Please fill out the form below. Your application will be reviewed before approval.</p>
 
-							<form action="Seller/SellerDashboard.php" method="post" autocomplete="on" class="row g-4">
+							<form action="seller-apply-validate.php" method="post" autocomplete="on" class="row g-4">
 								<div class="col-12">
 									<h2 class="seller-section-title"><i class="bi bi-person-badge me-2"></i>Basic Information</h2>
 								</div>
 
 								<div class="col-12 col-md-6">
-									<label for="fullName" class="form-label seller-form-label">Full Name</label>
-									<input id="fullName" name="full_name" type="text" class="form-control seller-form-control" value="<?php echo htmlspecialchars($fullName, ENT_QUOTES, 'UTF-8'); ?>" readonly>
+									<label for="firstName" class="form-label seller-form-label">First Name</label>
+									<input id="firstName" name="first_name" type="text" class="form-control seller-form-control" value="<?php echo htmlspecialchars($firstName, ENT_QUOTES, 'UTF-8'); ?>" readonly>
+								</div>
+
+								<div class="col-12 col-md-6">
+									<label for="lastName" class="form-label seller-form-label">Last Name</label>
+									<input id="lastName" name="last_name" type="text" class="form-control seller-form-control" value="<?php echo htmlspecialchars($lastName, ENT_QUOTES, 'UTF-8'); ?>" readonly>
 								</div>
 
 								<div class="col-12 col-md-6">
