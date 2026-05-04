@@ -1,39 +1,57 @@
 <?php
+declare(strict_types=1);
+
 session_start();
+require '../config.php';
+require '../includes/db_helpers.php';
 
-$sellerOrders = (array) ($_SESSION['seller_orders'] ?? []);
-$sellerProducts = (array) ($_SESSION['seller_products'] ?? []);
+bh_require_role(['seller', 'both'], '../Login.php');
 
-$totalOrders = count($sellerOrders);
-$totalProducts = count($sellerProducts);
+$sellerId = bh_current_user_id();
+$sellerProfile = bh_fetch_seller_profile($conn, $sellerId);
 
-$totalSales = 0.0;
-foreach ($sellerOrders as $order) {
-	if (!is_array($order)) {
-		continue;
-	}
-	$totalSales += (float) ($order['total'] ?? 0);
-}
+$stmt = $conn->prepare("SELECT COUNT(*) AS cnt FROM listings WHERE user_id = ?");
+$stmt->bind_param('i', $sellerId);
+$stmt->execute();
+$totalProducts = (int) ($stmt->get_result()->fetch_assoc()['cnt'] ?? 0);
+$stmt->close();
 
-// Group orders by product for chart
+$stmt = $conn->prepare("
+	SELECT
+		COUNT(DISTINCT o.order_id) AS total_orders,
+		COALESCE(SUM(oi.subtotal), 0) AS total_sales
+	FROM order_items oi
+	JOIN orders o ON oi.order_id = o.order_id
+	JOIN listings l ON oi.listing_id = l.listing_id
+	WHERE l.user_id = ?
+");
+$stmt->bind_param('i', $sellerId);
+$stmt->execute();
+$totals = $stmt->get_result()->fetch_assoc() ?: [];
+$stmt->close();
+
+$totalOrders = (int) ($totals['total_orders'] ?? 0);
+$totalSales = (float) ($totals['total_sales'] ?? 0);
+
+$stmt = $conn->prepare("
+	SELECT p.product_name, COALESCE(SUM(oi.subtotal), 0) AS sales
+	FROM order_items oi
+	JOIN listings l ON oi.listing_id = l.listing_id
+	JOIN products p ON l.product_id = p.product_id
+	WHERE l.user_id = ?
+	GROUP BY p.product_id, p.product_name
+	ORDER BY sales DESC
+");
+$stmt->bind_param('i', $sellerId);
+$stmt->execute();
+$result = $stmt->get_result();
+
 $productSales = [];
-foreach ($sellerOrders as $order) {
-	if (!is_array($order) || empty($order['product_name'])) {
-		continue;
-	}
-	$productName = $order['product_name'];
-	$orderTotal = (float) ($order['total'] ?? 0);
-	
-	if (!isset($productSales[$productName])) {
-		$productSales[$productName] = 0;
-	}
-	$productSales[$productName] += $orderTotal;
+while ($row = $result->fetch_assoc()) {
+	$productSales[(string) $row['product_name']] = (float) $row['sales'];
 }
+$stmt->close();
 
-// Sort by sales descending
-arsort($productSales);
-
-// Prepare data for Chart.js
 $chartLabels = array_keys($productSales);
 $chartData = array_values($productSales);
 ?>
@@ -52,27 +70,15 @@ $chartData = array_values($productSales);
 	<nav class="navbar navbar-expand-md navbar-light fixed-top bh-navbar">
 		<div class="container-fluid px-4 px-lg-5 bh-nav-container">
 			<a class="navbar-brand bh-brand" href="../Buyer/Dashboard.php">Brewhub</a>
-
 			<div class="d-flex align-items-center gap-2 order-md-3 bh-nav-actions">
-				<span class="navbar-text" style="color: #8B4513; font-weight: 500;">
-					<i class="bi bi-shop me-2"></i>Brewhub Beans Corner
-				</span>
+				<span class="navbar-text" style="color: #8B4513; font-weight: 500;"><i class="bi bi-shop me-2"></i><?php echo htmlspecialchars($sellerProfile['shop_name'], ENT_QUOTES, 'UTF-8'); ?></span>
 			</div>
-
 			<div class="collapse navbar-collapse justify-content-center order-md-2" id="navbarNav">
 				<ul class="navbar-nav align-items-md-center gap-md-4 gap-lg-5 bh-nav-links">
-					<li class="nav-item">
-						<a class="nav-link active" href="SellerDashboard.php">Dashboard</a>
-					</li>
-					<li class="nav-item">
-						<a class="nav-link" href="Products.php">Products</a>
-					</li>
-					<li class="nav-item">
-						<a class="nav-link" href="Orders.php">Orders</a>
-					</li>
-					<li class="nav-item">
-						<a class="nav-link" href="ShopProfile.php">Shop Profile</a>
-					</li>
+					<li class="nav-item"><a class="nav-link active" href="SellerDashboard.php">Dashboard</a></li>
+					<li class="nav-item"><a class="nav-link" href="Products.php">Products</a></li>
+					<li class="nav-item"><a class="nav-link" href="Orders.php">Orders</a></li>
+					<li class="nav-item"><a class="nav-link" href="ShopProfile.php">Shop Profile</a></li>
 				</ul>
 			</div>
 		</div>
@@ -89,27 +95,9 @@ $chartData = array_values($productSales);
 
 			<section id="overview" class="mb-4">
 				<div class="row g-3">
-					<div class="col-12 col-md-4">
-						<div class="seller-stat-card h-100">
-							<div class="seller-stat-icon"><i class="bi bi-cash-coin"></i></div>
-							<p class="seller-stat-label mb-1">Total Sales</p>
-							<h3 class="seller-stat-value mb-0">PHP <?php echo number_format($totalSales, 2); ?></h3>
-						</div>
-					</div>
-					<div class="col-12 col-md-4">
-						<div class="seller-stat-card h-100">
-							<div class="seller-stat-icon"><i class="bi bi-receipt"></i></div>
-							<p class="seller-stat-label mb-1">Total Orders</p>
-							<h3 class="seller-stat-value mb-0"><?php echo (int) $totalOrders; ?></h3>
-						</div>
-					</div>
-					<div class="col-12 col-md-4">
-						<div class="seller-stat-card h-100">
-							<div class="seller-stat-icon"><i class="bi bi-box-seam"></i></div>
-							<p class="seller-stat-label mb-1">Total Products</p>
-							<h3 class="seller-stat-value mb-0"><?php echo (int) $totalProducts; ?></h3>
-						</div>
-					</div>
+					<div class="col-12 col-md-4"><div class="seller-stat-card h-100"><div class="seller-stat-icon"><i class="bi bi-cash-coin"></i></div><p class="seller-stat-label mb-1">Total Sales</p><h3 class="seller-stat-value mb-0">PHP <?php echo number_format($totalSales, 2); ?></h3></div></div>
+					<div class="col-12 col-md-4"><div class="seller-stat-card h-100"><div class="seller-stat-icon"><i class="bi bi-receipt"></i></div><p class="seller-stat-label mb-1">Total Orders</p><h3 class="seller-stat-value mb-0"><?php echo (int) $totalOrders; ?></h3></div></div>
+					<div class="col-12 col-md-4"><div class="seller-stat-card h-100"><div class="seller-stat-icon"><i class="bi bi-box-seam"></i></div><p class="seller-stat-label mb-1">Total Products</p><h3 class="seller-stat-value mb-0"><?php echo (int) $totalProducts; ?></h3></div></div>
 				</div>
 			</section>
 
@@ -122,9 +110,7 @@ $chartData = array_values($productSales);
 							<p class="mb-0">No sales data yet. Start selling to see your best sellers!</p>
 						</div>
 					<?php else: ?>
-						<div style="position: relative; height: 400px;">
-							<canvas id="bestSellersChart"></canvas>
-						</div>
+						<div style="position: relative; height: 400px;"><canvas id="bestSellersChart"></canvas></div>
 					<?php endif; ?>
 				</div>
 			</section>
@@ -134,26 +120,10 @@ $chartData = array_values($productSales);
 	<footer class="bh-footer-bar px-4 px-lg-5 py-4 mt-5">
 		<div class="container-fluid bh-footer-bar-container">
 			<div class="bh-footer-bar-left">
-				<div class="bh-footer-bar-logo-box">
-					<img src="../Assets/Brew_Hub.png" alt="Brewhub Logo" class="bh-footer-bar-logo">
-				</div>
-
-				<div class="bh-footer-bar-meta">
-					<div class="bh-footer-bar-copy">&copy; 2026 Brewhub Seller</div>
-					<div class="bh-footer-bar-legal" aria-label="Legal links">
-						<a class="bh-footer-bar-legal-link" href="#">Terms</a>
-						<a class="bh-footer-bar-legal-link" href="#">Privacy</a>
-						<a class="bh-footer-bar-legal-link" href="#">Cookies</a>
-					</div>
-				</div>
+				<div class="bh-footer-bar-logo-box"><img src="../Assets/Brew_Hub.png" alt="Brewhub Logo" class="bh-footer-bar-logo"></div>
+				<div class="bh-footer-bar-meta"><div class="bh-footer-bar-copy">&copy; 2026 Brewhub Seller</div><div class="bh-footer-bar-legal" aria-label="Legal links"><a class="bh-footer-bar-legal-link" href="#">Terms</a><a class="bh-footer-bar-legal-link" href="#">Privacy</a><a class="bh-footer-bar-legal-link" href="#">Cookies</a></div></div>
 			</div>
-
-			<nav class="bh-footer-bar-nav" aria-label="Footer navigation">
-				<a class="bh-footer-bar-link" href="SellerDashboard.php">Dashboard</a>
-				<a class="bh-footer-bar-link" href="Products.php">Products</a>
-				<a class="bh-footer-bar-link" href="Orders.php">Orders</a>
-				<a class="bh-footer-bar-link" href="ShopProfile.php">Shop Profile</a>
-			</nav>
+			<nav class="bh-footer-bar-nav" aria-label="Footer navigation"><a class="bh-footer-bar-link" href="SellerDashboard.php">Dashboard</a><a class="bh-footer-bar-link" href="Products.php">Products</a><a class="bh-footer-bar-link" href="Orders.php">Orders</a><a class="bh-footer-bar-link" href="ShopProfile.php">Shop Profile</a></nav>
 		</div>
 	</footer>
 
@@ -165,33 +135,9 @@ $chartData = array_values($productSales);
 			type: 'bar',
 			data: {
 				labels: <?php echo json_encode($chartLabels); ?>,
-				datasets: [{
-					label: 'Sales (PHP)',
-					data: <?php echo json_encode($chartData); ?>,
-					backgroundColor: 'rgba(139, 69, 19, 0.7)',
-					borderColor: 'rgba(139, 69, 19, 1)',
-					borderWidth: 1
-				}]
+				datasets: [{ label: 'Sales (PHP)', data: <?php echo json_encode($chartData); ?>, backgroundColor: 'rgba(139, 69, 19, 0.7)', borderColor: 'rgba(139, 69, 19, 1)', borderWidth: 1 }]
 			},
-			options: {
-				responsive: true,
-				maintainAspectRatio: false,
-				plugins: {
-					legend: {
-						display: false
-					}
-				},
-				scales: {
-					y: {
-						beginAtZero: true,
-						ticks: {
-							callback: function(value) {
-								return 'PHP ' + value.toLocaleString();
-							}
-						}
-					}
-				}
-			}
+			options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { callback: function(value) { return 'PHP ' + value.toLocaleString(); } } } } }
 		});
 	</script>
 	<?php endif; ?>

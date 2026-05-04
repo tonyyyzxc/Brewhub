@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 session_start();
 require '../config.php';
+require '../includes/db_helpers.php';
 
 $loggedIn = (bool) ($_SESSION['loggedin'] ?? false);
 $userId   = (int)  ($_SESSION['user_id']  ?? 0);
@@ -12,7 +13,7 @@ if (!$loggedIn || $userId <= 0) {
     exit;
 }
 
-$cartCount = 0;
+$cartCount = bh_cart_count($conn, $userId);
 
 $profile = [
     'username'  => (string) ($_SESSION['userName']  ?? ''),
@@ -211,9 +212,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                                             <i class="bi bi-pencil-square me-2"></i>Edit Profile
                                         </button>
                                     </form>
+                                    <?php if (!in_array(strtolower((string) $profile['role']), ['seller', 'both', 'admin'], true)): ?>
                                     <a class="btn profile-btn profile-btn-seller" href="../BecomeSeller.php">
                                         <i class="bi bi-shop me-2"></i>Become a Seller
                                     </a>
+                                    <?php endif; ?>
                                 </div>
                                 <a class="btn profile-btn profile-btn-edit" href="../Login.php">
                                     <i class="bi bi-box-arrow-right me-2"></i>Log out

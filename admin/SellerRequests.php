@@ -23,8 +23,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $row = $conn->query("SELECT user_id FROM seller_requests WHERE request_id = $requestId")->fetch_assoc();
         if ($row) {
             $uid = (int) $row['user_id'];
-            // Update role to seller
-            $conn->query("UPDATE users SET role = 'seller' WHERE user_id = $uid");
+            // Approved sellers should keep buyer access too.
+            $conn->query("UPDATE users SET role = 'both' WHERE user_id = $uid");
             // Update request status
             $conn->query("UPDATE seller_requests SET status = 'approved' WHERE request_id = $requestId");
             $message = '<div class="alert alert-success">Seller request approved successfully!</div>';
@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// ── Fetch all requests from DB ────────────────────────
+//  Fetch all requests from DB
 $requests = [];
 $result = $conn->query("
     SELECT 
@@ -68,7 +68,7 @@ while ($row = $result->fetch_assoc()) {
     $requests[] = $row;
 }
 
-// ── Pending count for badge ───────────────────────────
+// Pending count for badge 
 $pendingCount = 0;
 foreach ($requests as $r) {
     if (strtolower($r['status']) === 'pending') $pendingCount++;
