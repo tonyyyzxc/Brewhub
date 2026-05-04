@@ -130,11 +130,23 @@ while ($row = $result->fetch_assoc()) {
 					</div>
 				</div>
 
-				<?php if ($flash): ?>
-					<div class="alert alert-<?php echo $flash['type']; ?> border-0" role="alert">
-						<?php echo htmlspecialchars($flash['text'], ENT_QUOTES, 'UTF-8'); ?>
-					</div>
-				<?php endif; ?>
+						<?php if ($flash): ?>
+							<div class="bh-toast-container position-fixed top-0 end-0 p-3">
+								<div id="bhToast" class="toast bh-toast bh-toast--<?php echo htmlspecialchars($flash['type'], ENT_QUOTES, 'UTF-8'); ?>" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="3000">
+									<div class="toast-body d-flex align-items-start gap-2">
+										<?php if ($flash['type'] === 'danger'): ?>
+											<i class="bi bi-exclamation-triangle-fill bh-toast-icon" aria-hidden="true"></i>
+										<?php elseif ($flash['type'] === 'warning'): ?>
+											<i class="bi bi-exclamation-circle-fill bh-toast-icon" aria-hidden="true"></i>
+										<?php else: ?>
+											<i class="bi bi-check2-circle bh-toast-icon" aria-hidden="true"></i>
+										<?php endif; ?>
+										<div class="bh-toast-text"><?php echo htmlspecialchars($flash['text'], ENT_QUOTES, 'UTF-8'); ?></div>
+										<button type="button" class="btn-close ms-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+									</div>
+								</div>
+							</div>
+						<?php endif; ?>
 
 				<div class="row">
 					<div class="col-12">
@@ -240,6 +252,14 @@ while ($row = $result->fetch_assoc()) {
 
 	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 	<script>
+		// Toast (success/error feedback)
+		document.addEventListener('DOMContentLoaded', () => {
+			const toastEl = document.getElementById('bhToast');
+			if (toastEl && window.bootstrap && bootstrap.Toast) {
+				new bootstrap.Toast(toastEl).show();
+			}
+		});
+
 		document.getElementById('sidebarToggle').addEventListener('click', () => {
 			document.body.classList.toggle('admin-sidebar-collapsed');
 		});

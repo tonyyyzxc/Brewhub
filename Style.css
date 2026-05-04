@@ -845,6 +845,36 @@ body.admin-sidebar-collapsed .admin-sidebar {
 	color: #fff;
 }
 
+/* Admin toast (feedback messages) */
+.bh-toast-container {
+	z-index: 1080;
+}
+
+.bh-toast {
+	border-radius: 12px;
+	background: rgba(255, 255, 255, 0.92);
+	border: 1px solid rgba(111, 78, 55, 0.22);
+	color: #3f291f;
+	min-width: 260px;
+	max-width: 380px;
+}
+
+.bh-toast .toast-body {
+	font-weight: 700;
+	font-size: 0.92rem;
+}
+
+.bh-toast-icon {
+	font-size: 1.05rem;
+	line-height: 1.1;
+	margin-top: 0.15rem;
+	color: #964B00;
+}
+
+.bh-toast--danger .bh-toast-icon {
+	color: rgba(159, 47, 47, 0.92);
+}
+
 .admin-product-card {
 	padding: 0;
 	overflow: hidden;
@@ -1274,6 +1304,20 @@ body.admin-sidebar-collapsed .admin-sidebar {
 	font-size: 1.15rem;
 	color: #964B00;
 	white-space: nowrap;
+}
+
+.bh-product-seller {
+	font-size: 0.85rem;
+	font-weight: 500;
+	color: rgba(63, 41, 31, 0.7);
+	display: flex;
+	align-items: center;
+	gap: 0.35rem;
+}
+
+.bh-product-seller i {
+	font-size: 0.9rem;
+	color: #964B00;
 }
 
 .bh-product-badge {

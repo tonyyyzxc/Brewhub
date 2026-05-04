@@ -68,6 +68,15 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
 
                         if(empty($role)) $role = 'buyer';
 
+                        // Legacy compatibility: convert 'both' to 'seller'
+                        if (strtolower((string) $role) === 'both') {
+                            $role = 'seller';
+                            $fixRole = $conn->prepare("UPDATE users SET role = 'seller' WHERE user_id = ?");
+                            $fixRole->bind_param('i', $ID);
+                            $fixRole->execute();
+                            $fixRole->close();
+                        }
+
                         $_SESSION['loggedin'] = true;
                         $_SESSION['user_id'] = $ID;
                         $_SESSION['email'] = $email;

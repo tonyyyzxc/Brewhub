@@ -17,7 +17,7 @@ if ($row = $result->fetch_assoc()) $totalUsers = (int) $row['cnt'];
 
 // Total Sellers
 $totalSellers = 0;
-$result = $conn->query("SELECT COUNT(*) AS cnt FROM users WHERE role = 'seller' OR role = 'both'");
+$result = $conn->query("SELECT COUNT(*) AS cnt FROM users WHERE role = 'seller'");
 if ($row = $result->fetch_assoc()) $totalSellers = (int) $row['cnt'];
 
 // Total Products (from listings — that's what has price/stock)

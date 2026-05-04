@@ -5,7 +5,7 @@ session_start();
 require '../config.php';
 require '../includes/db_helpers.php';
 
-bh_require_role(['seller', 'both'], '../Login.php');
+bh_require_role(['seller'], '../Login.php');
 
 $sellerId = bh_current_user_id();
 $sellerProfile = bh_fetch_seller_profile($conn, $sellerId);

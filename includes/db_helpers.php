@@ -12,8 +12,13 @@ function bh_require_login(string $redirect = '../Login.php'): void
 function bh_require_role(array $roles, string $redirect = '../Login.php'): void
 {
 	bh_require_login($redirect);
-	$role = (string) ($_SESSION['role'] ?? '');
-	if (!in_array($role, $roles, true)) {
+	$role = strtolower((string) ($_SESSION['role'] ?? ''));
+	if ($role === 'both') {
+		$role = 'seller';
+		$_SESSION['role'] = 'seller';
+	}
+	$normalizedRoles = array_map(static fn($r): string => strtolower((string) $r), $roles);
+	if (!in_array($role, $normalizedRoles, true)) {
 		header('Location: ' . $redirect);
 		exit;
 	}

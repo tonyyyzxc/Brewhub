@@ -9,7 +9,7 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['role'] !== 'admin') {
     exit;
 }
 
-$message = '';
+$toast = null;
 
 // ── Handle approve / reject / delete ─────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -17,30 +17,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $requestId = (int)    ($_POST['request_id'] ?? 0);
 
     if ($requestId <= 0) {
-        $message = '<div class="alert alert-danger">Invalid request ID.</div>';
+        $toast = ['type' => 'danger', 'text' => 'Invalid request ID.'];
     } elseif ($action === 'approve') {
         // Get user_id from request
         $row = $conn->query("SELECT user_id FROM seller_requests WHERE request_id = $requestId")->fetch_assoc();
         if ($row) {
             $uid = (int) $row['user_id'];
-            // Approved sellers should keep buyer access too.
-            $conn->query("UPDATE users SET role = 'both' WHERE user_id = $uid");
+            $conn->query("UPDATE users SET role = 'seller' WHERE user_id = $uid");
             // Update request status
             $conn->query("UPDATE seller_requests SET status = 'approved' WHERE request_id = $requestId");
-            $message = '<div class="alert alert-success">Seller request approved successfully!</div>';
+            $toast = ['type' => 'success', 'text' => 'Seller request approved successfully!'];
         } else {
-            $message = '<div class="alert alert-danger">Request not found.</div>';
+            $toast = ['type' => 'danger', 'text' => 'Request not found.'];
         }
     } elseif ($action === 'reject') {
         $ok = $conn->query("UPDATE seller_requests SET status = 'rejected' WHERE request_id = $requestId");
-        $message = $ok
-            ? '<div class="alert alert-warning">Seller request rejected.</div>'
-            : '<div class="alert alert-danger">Request not found.</div>';
+        $toast = $ok
+            ? ['type' => 'warning', 'text' => 'Seller request rejected.']
+            : ['type' => 'danger', 'text' => 'Request not found.'];
     } elseif ($action === 'delete') {
         $ok = $conn->query("DELETE FROM seller_requests WHERE request_id = $requestId");
-        $message = $ok
-            ? '<div class="alert alert-success">Request deleted successfully!</div>'
-            : '<div class="alert alert-danger">Request not found.</div>';
+        $toast = $ok
+            ? ['type' => 'success', 'text' => 'Request deleted successfully!']
+            : ['type' => 'danger', 'text' => 'Request not found.'];
     }
 }
 
@@ -162,7 +161,23 @@ foreach ($requests as $r) {
                     </div>
                 </div>
 
-                <?php echo $message; ?>
+                <?php if ($toast): ?>
+                    <div class="bh-toast-container position-fixed top-0 end-0 p-3">
+                        <div id="bhToast" class="toast bh-toast bh-toast--<?php echo htmlspecialchars($toast['type'], ENT_QUOTES, 'UTF-8'); ?>" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="3000">
+                            <div class="toast-body d-flex align-items-start gap-2">
+                                <?php if ($toast['type'] === 'danger'): ?>
+                                    <i class="bi bi-exclamation-triangle-fill bh-toast-icon" aria-hidden="true"></i>
+                                <?php elseif ($toast['type'] === 'warning'): ?>
+                                    <i class="bi bi-exclamation-circle-fill bh-toast-icon" aria-hidden="true"></i>
+                                <?php else: ?>
+                                    <i class="bi bi-check2-circle bh-toast-icon" aria-hidden="true"></i>
+                                <?php endif; ?>
+                                <div class="bh-toast-text"><?php echo htmlspecialchars($toast['text'], ENT_QUOTES, 'UTF-8'); ?></div>
+                                <button type="button" class="btn-close ms-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                            </div>
+                        </div>
+                    </div>
+                <?php endif; ?>
 
                 <div class="row">
                     <div class="col-12">
@@ -290,6 +305,14 @@ foreach ($requests as $r) {
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Toast (success/error feedback)
+        document.addEventListener('DOMContentLoaded', () => {
+            const toastEl = document.getElementById('bhToast');
+            if (toastEl && window.bootstrap && bootstrap.Toast) {
+                new bootstrap.Toast(toastEl).show();
+            }
+        });
+
         // Sidebar toggle
         document.getElementById('sidebarToggle').addEventListener('click', () => {
             document.body.classList.toggle('admin-sidebar-collapsed');

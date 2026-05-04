@@ -8,7 +8,7 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['role'] !== 'admin') {
     exit();
 }
 
-$message = '';
+$toast = null;
 
 // Add Admin
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_admin') {
@@ -19,18 +19,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_a
     $password  = trim($_POST['password']   ?? '');
 
     if (empty($username) || empty($firstName) || empty($lastName) || empty($email) || empty($password)) {
-        $message = '<div class="alert alert-danger">All fields are required.</div>';
+        $toast = ['type' => 'danger', 'text' => 'All fields are required.'];
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $message = '<div class="alert alert-danger">Invalid email address.</div>';
+        $toast = ['type' => 'danger', 'text' => 'Invalid email address.'];
     } else {
         $hashed = password_hash($password, PASSWORD_BCRYPT);
         $stmt = $conn->prepare("INSERT INTO users (FirstName, LastName, username, email, password, role) VALUES (?, ?, ?, ?, ?, 'admin')");
         $stmt->bind_param('sssss', $firstName, $lastName, $username, $email, $hashed);
         $ok = $stmt->execute();
         $stmt->close();
-        $message = $ok
-            ? '<div class="alert alert-success">Admin account created successfully!</div>'
-            : '<div class="alert alert-danger">Failed. Email or username may already exist.</div>';
+        $toast = $ok
+            ? ['type' => 'success', 'text' => 'Admin account created successfully!']
+            : ['type' => 'danger', 'text' => 'Failed. Email or username may already exist.'];
     }
 }
 
@@ -38,15 +38,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_a
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete') {
     $userId = (int) ($_POST['user_id'] ?? 0);
     if ($userId <= 0) {
-        $message = '<div class="alert alert-danger">Invalid user ID.</div>';
+        $toast = ['type' => 'danger', 'text' => 'Invalid user ID.'];
     } else {
         $stmt = $conn->prepare("DELETE FROM users WHERE user_id = ?");
         $stmt->bind_param('i', $userId);
         $ok = $stmt->execute();
         $stmt->close();
-        $message = $ok
-            ? '<div class="alert alert-success">User deleted successfully!</div>'
-            : '<div class="alert alert-danger">User not found.</div>';
+        $toast = $ok
+            ? ['type' => 'success', 'text' => 'User deleted successfully!']
+            : ['type' => 'danger', 'text' => 'User not found.'];
     }
 }
 
@@ -132,7 +132,23 @@ while ($row = $result->fetch_assoc()) {
                     </div>
                 </div>
 
-                <?php echo $message; ?>
+                <?php if ($toast): ?>
+                    <div class="bh-toast-container position-fixed top-0 end-0 p-3">
+                        <div id="bhToast" class="toast bh-toast bh-toast--<?php echo htmlspecialchars($toast['type'], ENT_QUOTES, 'UTF-8'); ?>" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="3000">
+                            <div class="toast-body d-flex align-items-start gap-2">
+                                <?php if ($toast['type'] === 'danger'): ?>
+                                    <i class="bi bi-exclamation-triangle-fill bh-toast-icon" aria-hidden="true"></i>
+                                <?php elseif ($toast['type'] === 'warning'): ?>
+                                    <i class="bi bi-exclamation-circle-fill bh-toast-icon" aria-hidden="true"></i>
+                                <?php else: ?>
+                                    <i class="bi bi-check2-circle bh-toast-icon" aria-hidden="true"></i>
+                                <?php endif; ?>
+                                <div class="bh-toast-text"><?php echo htmlspecialchars($toast['text'], ENT_QUOTES, 'UTF-8'); ?></div>
+                                <button type="button" class="btn-close ms-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                            </div>
+                        </div>
+                    </div>
+                <?php endif; ?>
 
                 <div class="row">
                     <div class="col-12">
@@ -265,6 +281,14 @@ while ($row = $result->fetch_assoc()) {
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Toast (success/error feedback)
+        document.addEventListener('DOMContentLoaded', () => {
+            const toastEl = document.getElementById('bhToast');
+            if (toastEl && window.bootstrap && bootstrap.Toast) {
+                new bootstrap.Toast(toastEl).show();
+            }
+        });
+
         document.getElementById('sidebarToggle').addEventListener('click', () => {
             document.body.classList.toggle('admin-sidebar-collapsed');
         });

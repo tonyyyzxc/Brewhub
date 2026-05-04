@@ -115,6 +115,9 @@ $products = bh_fetch_listings($conn, $categoryGroup);
               $price = (float) ($p['price'] ?? 0);
               $image = bh_buyer_image_path((string) ($p['image_path'] ?? ''));
               $description = trim((string) ($p['description'] ?? ''));
+              $sellerName = trim((string) ($p['seller_name'] ?? ''));
+              $sellerUsername = trim((string) ($p['seller_username'] ?? ''));
+              $shopName = $sellerName !== '' ? $sellerName : ($sellerUsername !== '' ? $sellerUsername . "'s Shop" : 'Unknown Shop');
             ?>
             <div class="col-12 col-sm-6 col-lg-4">
               <div
@@ -136,6 +139,9 @@ $products = bh_fetch_listings($conn, $categoryGroup);
                   <div class="bh-product-top">
                     <h3 class="bh-product-title"><?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?></h3>
                     <div class="bh-product-price">PHP <?php echo number_format($price, 2); ?></div>
+                  </div>
+                  <div class="bh-product-seller">
+                    <i class="bi bi-shop"></i> <?php echo htmlspecialchars($shopName, ENT_QUOTES, 'UTF-8'); ?>
                   </div>
                   <div class="bh-product-meta">
                     <span class="bh-product-badge"><?php echo htmlspecialchars($category, ENT_QUOTES, 'UTF-8'); ?></span>

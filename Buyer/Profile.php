@@ -23,6 +23,52 @@ $profile = [
     'role'      => (string) ($_SESSION['role']      ?? 'buyer'),
 ];
 
+// Keep profile/role in sync with DB (e.g., after admin approves seller request)
+$stmt = $conn->prepare('SELECT username, FirstName, LastName, email, role FROM users WHERE user_id = ?');
+if ($stmt) {
+    $stmt->bind_param('i', $userId);
+    $stmt->execute();
+    $stmt->bind_result($dbUsername, $dbFirstName, $dbLastName, $dbEmail, $dbRole);
+    if ($stmt->fetch()) {
+        $normalizedRole = strtolower((string) $dbRole);
+        if ($normalizedRole === 'both') {
+            $dbRole = 'seller';
+            $fixRole = $conn->prepare("UPDATE users SET role = 'seller' WHERE user_id = ?");
+            if ($fixRole) {
+                $fixRole->bind_param('i', $userId);
+                $fixRole->execute();
+                $fixRole->close();
+            }
+        }
+
+        $profile['username']  = (string) $dbUsername;
+        $profile['FirstName'] = (string) $dbFirstName;
+        $profile['LastName']  = (string) $dbLastName;
+        $profile['email']     = (string) $dbEmail;
+        $profile['role']      = (string) $dbRole;
+
+        $_SESSION['userName']  = $profile['username'];
+        $_SESSION['FirstName'] = $profile['FirstName'];
+        $_SESSION['LastName']  = $profile['LastName'];
+        $_SESSION['email']     = $profile['email'];
+        $_SESSION['role']      = $profile['role'];
+    }
+    $stmt->close();
+}
+
+// Latest seller request status for UI state
+$sellerRequestStatus = null;
+$stmt = $conn->prepare("SELECT status FROM seller_requests WHERE user_id = ? ORDER BY request_id DESC LIMIT 1");
+if ($stmt) {
+    $stmt->bind_param('i', $userId);
+    $stmt->execute();
+    $stmt->bind_result($srStatus);
+    if ($stmt->fetch()) {
+        $sellerRequestStatus = strtolower((string) $srStatus);
+    }
+    $stmt->close();
+}
+
 $showToast    = false;
 $toastMessage = '';
 $toastType    = 'success';
@@ -212,10 +258,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                                             <i class="bi bi-pencil-square me-2"></i>Edit Profile
                                         </button>
                                     </form>
-                                    <?php if (!in_array(strtolower((string) $profile['role']), ['seller', 'both', 'admin'], true)): ?>
-                                    <a class="btn profile-btn profile-btn-seller" href="../BecomeSeller.php">
-                                        <i class="bi bi-shop me-2"></i>Become a Seller
-                                    </a>
+                                    <?php
+                                        $roleLower = strtolower((string) ($profile['role'] ?? 'buyer'));
+                                        if ($roleLower === 'both') {
+                                            $roleLower = 'seller';
+                                        }
+                                        $hasSellerAccess = in_array($roleLower, ['seller', 'admin'], true);
+                                    ?>
+
+                                    <?php if ($hasSellerAccess): ?>
+                                        <a class="btn profile-btn profile-btn-seller" href="../Seller/SellerDashboard.php">
+                                            <i class="bi bi-shop me-2"></i>Seller Dashboard
+                                        </a>
+                                    <?php elseif ($sellerRequestStatus === 'pending'): ?>
+                                        <button class="btn profile-btn profile-btn-seller" type="button" disabled aria-disabled="true">
+                                            <i class="bi bi-hourglass-split me-2"></i>Seller Application Pending
+                                        </button>
+                                    <?php elseif ($sellerRequestStatus === 'rejected'): ?>
+                                        <a class="btn profile-btn profile-btn-seller" href="../BecomeSeller.php">
+                                            <i class="bi bi-arrow-repeat me-2"></i>Re-apply as Seller
+                                        </a>
+                                    <?php else: ?>
+                                        <a class="btn profile-btn profile-btn-seller" href="../BecomeSeller.php">
+                                            <i class="bi bi-shop me-2"></i>Become a Seller
+                                        </a>
                                     <?php endif; ?>
                                 </div>
                                 <a class="btn profile-btn profile-btn-edit" href="../Login.php">
