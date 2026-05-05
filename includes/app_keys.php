@@ -1,8 +1,8 @@
 <?php
 
-$envPath = __DIR__ . '/../.env';
+$envPath = realpath(__DIR__ . '/../.env');
 
-if (file_exists($envPath)) {
+if ($envPath && file_exists($envPath)) {
     $env = parse_ini_file($envPath);
     
     if ($env) {
