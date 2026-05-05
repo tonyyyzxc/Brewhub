@@ -47,6 +47,11 @@ function renderProductRow(array $products, string $shopUrl, string $shopLabel, s
             $stock = (int) ($p['stock'] ?? 0);
             $description = (string) ($p['description'] ?? '');
             $image = bh_buyer_image_path((string) ($p['image_path'] ?? ''));
+            $shopNameDb = trim((string) ($p['shop_name'] ?? ''));
+            $sellerName = trim((string) ($p['seller_name'] ?? ''));
+            $sellerUsername = trim((string) ($p['seller_username'] ?? ''));
+            $shopName = $shopNameDb !== '' ? $shopNameDb : ($sellerName !== '' ? $sellerName : ($sellerUsername !== '' ? $sellerUsername . "'s Shop" : 'Unknown Shop'));
+            $shopSellerId = (int) ($p['user_id'] ?? 0);
         ?>
         <div class="col">
             <div class="bh-product-card h-100 js-product-preview"
@@ -58,7 +63,8 @@ function renderProductRow(array $products, string $shopUrl, string $shopLabel, s
                 data-price="PHP <?php echo number_format($price, 2); ?>"
                 data-image="<?php echo htmlspecialchars($image, ENT_QUOTES, 'UTF-8'); ?>"
                 data-description="<?php echo htmlspecialchars($description, ENT_QUOTES, 'UTF-8'); ?>"
-                data-stock="<?php echo $stock; ?>">
+                data-stock="<?php echo $stock; ?>"
+                data-shop="<?php echo htmlspecialchars($shopName, ENT_QUOTES, 'UTF-8'); ?>">
                 <div class="bh-product-media">
                     <img class="bh-product-img" src="<?php echo htmlspecialchars($image, ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?>">
                 </div>
@@ -66,6 +72,14 @@ function renderProductRow(array $products, string $shopUrl, string $shopLabel, s
                     <div class="bh-product-top">
                         <h3 class="bh-product-title"><?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?></h3>
                         <div class="bh-product-price">PHP <?php echo number_format($price, 2); ?></div>
+                    </div>
+                    <div class="bh-product-seller">
+                        <i class="bi bi-shop"></i>
+                        <?php if ($shopSellerId > 0): ?>
+                            <a href="ShopPage.php?seller_id=<?php echo $shopSellerId; ?>" class="bh-shop-link" onclick="event.stopPropagation();"><?php echo htmlspecialchars($shopName, ENT_QUOTES, 'UTF-8'); ?></a>
+                        <?php else: ?>
+                            <?php echo htmlspecialchars($shopName, ENT_QUOTES, 'UTF-8'); ?>
+                        <?php endif; ?>
                     </div>
                     <div class="bh-product-meta">
                         <span class="bh-product-badge"><?php echo htmlspecialchars($category, ENT_QUOTES, 'UTF-8'); ?></span>
@@ -209,7 +223,40 @@ function renderProductRow(array $products, string $shopUrl, string $shopLabel, s
         </div>
     </footer>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="product-preview.js"></script>
+        <div class="bh-preview-backdrop" id="bhProductPreview" hidden>
+            <div class="bh-preview-dialog" role="dialog" aria-modal="true" aria-labelledby="bhPreviewTitle">
+                <div class="bh-product-card bh-preview-card">
+                    <button type="button" class="bh-preview-close" id="bhPreviewClose" aria-label="Close preview"><i class="bi bi-x-lg"></i></button>
+                    <div class="bh-product-media"><img class="bh-product-img" id="bhPreviewImage" src="" alt=""></div>
+                    <div class="bh-product-body">
+                        <div class="bh-product-top">
+                            <h3 class="bh-product-title" id="bhPreviewTitle"></h3>
+                            <div class="bh-product-price" id="bhPreviewPrice"></div>
+                        </div>
+                        <div class="bh-product-seller" id="bhPreviewShop" hidden><i class="bi bi-shop"></i> <span id="bhPreviewShopName"></span></div>
+                        <div class="bh-product-meta"><span class="bh-product-badge" id="bhPreviewCategory"></span></div>
+                        <form class="bh-preview-form" onsubmit="return false;">
+                            <label class="bh-preview-label" for="bhPreviewDescription">Description</label>
+                            <textarea class="form-control bh-preview-description" id="bhPreviewDescription" rows="4" readonly></textarea>
+                        </form>
+                        <div class="bh-product-actions bh-preview-actions">
+                            <form method="post" class="m-0">
+                                <input type="hidden" name="action" value="add_to_cart">
+                                <input type="hidden" name="listing_id" id="bhPreviewAddProductId" value="">
+                                <button type="submit" class="btn bh-btn bh-btn-primary btn-sm"><i class="bi bi-bag-plus me-1"></i>Add to cart</button>
+                            </form>
+                            <form method="post" class="m-0">
+                                <input type="hidden" name="action" value="buy_now">
+                                <input type="hidden" name="listing_id" id="bhPreviewBuyProductId" value="">
+                                <button type="submit" class="btn bh-btn bh-btn-ghost btn-sm"><i class="bi bi-lightning-charge me-1"></i>Buy now</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+        <script src="product-preview.js"></script>
 </body>
 </html>

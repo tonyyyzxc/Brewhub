@@ -6,6 +6,8 @@
   const title = document.getElementById('bhPreviewTitle');
   const price = document.getElementById('bhPreviewPrice');
   const category = document.getElementById('bhPreviewCategory');
+  const shopWrap = document.getElementById('bhPreviewShop');
+  const shopName = document.getElementById('bhPreviewShopName');
   const description = document.getElementById('bhPreviewDescription');
   const addProductId = document.getElementById('bhPreviewAddProductId');
   const buyProductId = document.getElementById('bhPreviewBuyProductId');
@@ -31,6 +33,13 @@
     title.textContent = data.name || '';
     price.textContent = data.price || '';
     category.textContent = data.category || '';
+
+    if (shopWrap && shopName) {
+      const shopText = (data.shop || '').trim();
+      shopName.textContent = shopText;
+      shopWrap.hidden = shopText === '';
+    }
+
     description.value = data.description || '';
     img.src = data.image || '';
     img.alt = data.name || 'Product image';

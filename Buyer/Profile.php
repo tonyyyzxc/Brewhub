@@ -80,6 +80,12 @@ $toastMessage = '';
 $toastType    = 'success';
 $isEditMode   = false;
 
+if (isset($_GET['seller_applied'])) {
+    $showToast    = true;
+    $toastMessage = 'Your seller application has been submitted! We will review it shortly.';
+    $toastType    = 'success';
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if ($_POST['action'] === 'edit') {
         $isEditMode = true;

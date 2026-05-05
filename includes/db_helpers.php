@@ -107,10 +107,12 @@ function bh_fetch_listings(mysqli $conn, ?string $categoryGroup = null, ?int $se
 			p.description,
 			p.image_path,
 			u.username AS seller_username,
-			CONCAT(COALESCE(u.FirstName, ''), ' ', COALESCE(u.LastName, '')) AS seller_name
+			CONCAT(COALESCE(u.FirstName, ''), ' ', COALESCE(u.LastName, '')) AS seller_name,
+			sp.shop_name
 		FROM listings l
 		JOIN products p ON l.product_id = p.product_id
 		JOIN users u ON l.user_id = u.user_id
+		LEFT JOIN seller_profiles sp ON sp.user_id = u.user_id
 		WHERE l.stock > 0
 	";
 

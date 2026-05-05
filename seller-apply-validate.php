@@ -47,7 +47,7 @@ $stmt = $conn->prepare(
 $stmt->bind_param("issssssss", $user_id, $first_name, $last_name, $email, $contact, $shop_name, $seller_type, $description, $address);
 
 if ($stmt->execute()) {
-    header('Location: Buyer/Dashboard.php?seller_applied=1');
+    header('Location: Buyer/Profile.php?seller_applied=1');
 } else {
     header('Location: BecomeSeller.php?error=db_error');
 }

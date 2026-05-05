@@ -115,9 +115,11 @@ $products = bh_fetch_listings($conn, $categoryGroup);
               $price = (float) ($p['price'] ?? 0);
               $image = bh_buyer_image_path((string) ($p['image_path'] ?? ''));
               $description = trim((string) ($p['description'] ?? ''));
+              $shopNameDb = trim((string) ($p['shop_name'] ?? ''));
               $sellerName = trim((string) ($p['seller_name'] ?? ''));
               $sellerUsername = trim((string) ($p['seller_username'] ?? ''));
-              $shopName = $sellerName !== '' ? $sellerName : ($sellerUsername !== '' ? $sellerUsername . "'s Shop" : 'Unknown Shop');
+              $shopName = $shopNameDb !== '' ? $shopNameDb : ($sellerName !== '' ? $sellerName : ($sellerUsername !== '' ? $sellerUsername . "'s Shop" : 'Unknown Shop'));
+              $shopSellerId = (int) ($p['user_id'] ?? 0);
             ?>
             <div class="col-12 col-sm-6 col-lg-4">
               <div
@@ -131,6 +133,7 @@ $products = bh_fetch_listings($conn, $categoryGroup);
                 data-price="PHP <?php echo number_format($price, 2); ?>"
                 data-image="<?php echo htmlspecialchars($image, ENT_QUOTES, 'UTF-8'); ?>"
                 data-description="<?php echo htmlspecialchars($description, ENT_QUOTES, 'UTF-8'); ?>"
+                data-shop="<?php echo htmlspecialchars($shopName, ENT_QUOTES, 'UTF-8'); ?>"
               >
                 <div class="bh-product-media">
                   <img class="bh-product-img" src="<?php echo htmlspecialchars($image, ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?>">
@@ -141,7 +144,12 @@ $products = bh_fetch_listings($conn, $categoryGroup);
                     <div class="bh-product-price">PHP <?php echo number_format($price, 2); ?></div>
                   </div>
                   <div class="bh-product-seller">
-                    <i class="bi bi-shop"></i> <?php echo htmlspecialchars($shopName, ENT_QUOTES, 'UTF-8'); ?>
+                    <i class="bi bi-shop"></i>
+                    <?php if ($shopSellerId > 0): ?>
+                      <a href="ShopPage.php?seller_id=<?php echo $shopSellerId; ?>" class="bh-shop-link" onclick="event.stopPropagation();"><?php echo htmlspecialchars($shopName, ENT_QUOTES, 'UTF-8'); ?></a>
+                    <?php else: ?>
+                      <?php echo htmlspecialchars($shopName, ENT_QUOTES, 'UTF-8'); ?>
+                    <?php endif; ?>
                   </div>
                   <div class="bh-product-meta">
                     <span class="bh-product-badge"><?php echo htmlspecialchars($category, ENT_QUOTES, 'UTF-8'); ?></span>
@@ -176,6 +184,7 @@ $products = bh_fetch_listings($conn, $categoryGroup);
               <h3 class="bh-product-title" id="bhPreviewTitle"></h3>
               <div class="bh-product-price" id="bhPreviewPrice"></div>
             </div>
+            <div class="bh-product-seller" id="bhPreviewShop" hidden><i class="bi bi-shop"></i> <span id="bhPreviewShopName"></span></div>
             <div class="bh-product-meta"><span class="bh-product-badge" id="bhPreviewCategory"></span></div>
             <form class="bh-preview-form" onsubmit="return false;">
               <label class="bh-preview-label" for="bhPreviewDescription">Description</label>
