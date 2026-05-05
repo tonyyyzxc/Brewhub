@@ -19,24 +19,25 @@ function bh_require_role(array $roles, string $redirect = '../Login.php'): void
 	}
 	$normalizedRoles = array_map(static fn($r): string => strtolower((string) $r), $roles);
 	if (!in_array($role, $normalizedRoles, true)) {
-	global $conn;
+		global $conn;
 
-	$userId = bh_current_user_id();
-	if ($userId > 0 && $conn instanceof mysqli) {
-		$stmt = $conn->prepare("SELECT role FROM users WHERE user_id = ?");
-		$stmt->bind_param('i', $userId);
-		$stmt->execute();
-		$freshRole = $stmt->get_result()->fetch_assoc()['role'] ?? null;
-		$stmt->close();
-		if ($freshRole !== null && $freshRole !== '') {
-			$_SESSION['role'] = (string) $freshRole;
+		$userId = bh_current_user_id();
+		if ($userId > 0 && $conn instanceof mysqli) {
+			$stmt = $conn->prepare("SELECT role FROM users WHERE user_id = ?");
+			$stmt->bind_param('i', $userId);
+			$stmt->execute();
+			$freshRole = $stmt->get_result()->fetch_assoc()['role'] ?? null;
+			$stmt->close();
+			if ($freshRole !== null && $freshRole !== '') {
+				$_SESSION['role'] = (string) $freshRole;
+			}
 		}
-	}
 
-	$role = (string) ($_SESSION['role'] ?? '');
-	if (!in_array($role, $roles, true)) {
-		header('Location: ' . $redirect);
-		exit;
+		$role = (string) ($_SESSION['role'] ?? '');
+		if (!in_array($role, $roles, true)) {
+			header('Location: ' . $redirect);
+			exit;
+		}
 	}
 }
 
@@ -83,11 +84,11 @@ function bh_category_matches(string $category, string $group): bool
 	}
 
 	return match ($group) {
-		'coffee' => str_contains($category, 'coffee') || str_contains($category, 'ingredient') || str_contains($category, 'bean'),
-		'cups' => str_contains($category, 'cup') || str_contains($category, 'pack'),
+		'coffee'    => str_contains($category, 'coffee') || str_contains($category, 'ingredient') || str_contains($category, 'bean'),
+		'cups'      => str_contains($category, 'cup') || str_contains($category, 'pack'),
 		'equipment' => str_contains($category, 'equip') || str_contains($category, 'machine') || str_contains($category, 'grinder'),
-		'pastry' => str_contains($category, 'pastry') || str_contains($category, 'bake'),
-		default => false,
+		'pastry'    => str_contains($category, 'pastry') || str_contains($category, 'bake'),
+		default     => false,
 	};
 }
 
@@ -200,15 +201,15 @@ function bh_fetch_cart_items(mysqli $conn, int $buyerId): array
 		$quantity = max(1, min((int) $row['quantity'], (int) $row['stock']));
 		$price = (float) $row['price'];
 		$items[] = [
-			'id' => (int) $row['listing_id'],
+			'id'         => (int) $row['listing_id'],
 			'listing_id' => (int) $row['listing_id'],
-			'name' => (string) $row['product_name'],
-			'category' => (string) $row['category'],
-			'price' => $price,
-			'image' => bh_buyer_image_path((string) ($row['image_path'] ?? '')),
-			'quantity' => $quantity,
-			'stock' => (int) $row['stock'],
-			'total' => $price * $quantity,
+			'name'       => (string) $row['product_name'],
+			'category'   => (string) $row['category'],
+			'price'      => $price,
+			'image'      => bh_buyer_image_path((string) ($row['image_path'] ?? '')),
+			'quantity'   => $quantity,
+			'stock'      => (int) $row['stock'],
+			'total'      => $price * $quantity,
 		];
 	}
 	$stmt->close();
@@ -219,10 +220,10 @@ function bh_fetch_cart_items(mysqli $conn, int $buyerId): array
 function bh_ensure_checkout_columns(mysqli $conn): void
 {
 	$columns = [
-		'customer_name' => "ADD COLUMN customer_name VARCHAR(150) NULL AFTER buyer_id",
-		'customer_phone' => "ADD COLUMN customer_phone VARCHAR(30) NULL AFTER customer_name",
+		'customer_name'    => "ADD COLUMN customer_name VARCHAR(150) NULL AFTER buyer_id",
+		'customer_phone'   => "ADD COLUMN customer_phone VARCHAR(30) NULL AFTER customer_name",
 		'customer_address' => "ADD COLUMN customer_address TEXT NULL AFTER customer_phone",
-		'payment_method' => "ADD COLUMN payment_method ENUM('cod','online') NULL AFTER customer_address",
+		'payment_method'   => "ADD COLUMN payment_method ENUM('cod','online') NULL AFTER customer_address",
 	];
 
 	foreach ($columns as $column => $alterSql) {
@@ -276,12 +277,12 @@ function bh_fetch_checkout_profile(mysqli $conn, int $buyerId): array
 	$row = $stmt->get_result()->fetch_assoc() ?: [];
 	$stmt->close();
 
-	$accountName = trim((string) ($row['account_name'] ?? ''));
+	$accountName  = trim((string) ($row['account_name'] ?? ''));
 	$customerName = trim((string) ($row['customer_name'] ?? ''));
 	return [
-		'full_name' => $customerName !== '' ? $customerName : $accountName,
-		'phone' => (string) ($row['customer_phone'] ?? ''),
-		'address' => (string) ($row['customer_address'] ?? ''),
+		'full_name'      => $customerName !== '' ? $customerName : $accountName,
+		'phone'          => (string) ($row['customer_phone'] ?? ''),
+		'address'        => (string) ($row['customer_address'] ?? ''),
 		'payment_method' => in_array((string) ($row['payment_method'] ?? ''), ['cod', 'online'], true)
 			? (string) $row['payment_method']
 			: 'cod',
@@ -295,12 +296,12 @@ function bh_create_order_from_cart(mysqli $conn, int $buyerId, float $shippingFe
 		return 0;
 	}
 
-	$subtotal = array_sum(array_map(static fn(array $item): float => (float) $item['total'], $cartItems));
-	$total = $subtotal + $shippingFee;
-	$customerName = trim((string) ($checkoutDetails['full_name'] ?? ''));
-	$customerPhone = trim((string) ($checkoutDetails['phone'] ?? ''));
+	$subtotal       = array_sum(array_map(static fn(array $item): float => (float) $item['total'], $cartItems));
+	$total          = $subtotal + $shippingFee;
+	$customerName   = trim((string) ($checkoutDetails['full_name'] ?? ''));
+	$customerPhone  = trim((string) ($checkoutDetails['phone'] ?? ''));
 	$customerAddress = trim((string) ($checkoutDetails['address'] ?? ''));
-	$paymentMethod = strtolower(trim((string) ($checkoutDetails['payment_method'] ?? 'cod')));
+	$paymentMethod  = strtolower(trim((string) ($checkoutDetails['payment_method'] ?? 'cod')));
 	if (!in_array($paymentMethod, ['cod', 'online'], true)) {
 		$paymentMethod = 'cod';
 	}
@@ -317,11 +318,11 @@ function bh_create_order_from_cart(mysqli $conn, int $buyerId, float $shippingFe
 		$orderId = (int) $conn->insert_id;
 		$stmt->close();
 
-		$itemStmt = $conn->prepare("INSERT INTO order_items (order_id, listing_id, quantity, subtotal) VALUES (?, ?, ?, ?)");
+		$itemStmt  = $conn->prepare("INSERT INTO order_items (order_id, listing_id, quantity, subtotal) VALUES (?, ?, ?, ?)");
 		$stockStmt = $conn->prepare("UPDATE listings SET stock = GREATEST(stock - ?, 0) WHERE listing_id = ?");
 		foreach ($cartItems as $item) {
-			$listingId = (int) $item['listing_id'];
-			$quantity = (int) $item['quantity'];
+			$listingId    = (int) $item['listing_id'];
+			$quantity     = (int) $item['quantity'];
 			$itemSubtotal = (float) $item['total'];
 			$itemStmt->bind_param('iiid', $orderId, $listingId, $quantity, $itemSubtotal);
 			$itemStmt->execute();
@@ -377,15 +378,15 @@ function bh_fetch_seller_profile(mysqli $conn, int $sellerId): array
 
 	$username = trim((string) ($row['username'] ?? 'Seller'));
 	return [
-		'first_name' => (string) ($row['FirstName'] ?? ''),
-		'last_name' => (string) ($row['LastName'] ?? ''),
-		'email' => (string) ($row['email'] ?? ''),
-		'username' => (string) ($row['username'] ?? ''),
-		'shop_name' => trim((string) ($row['shop_name'] ?? '')) ?: $username . "'s Shop",
-		'contact' => (string) ($row['contact'] ?? ''),
+		'first_name'  => (string) ($row['FirstName'] ?? ''),
+		'last_name'   => (string) ($row['LastName'] ?? ''),
+		'email'       => (string) ($row['email'] ?? ''),
+		'username'    => (string) ($row['username'] ?? ''),
+		'shop_name'   => trim((string) ($row['shop_name'] ?? '')) ?: $username . "'s Shop",
+		'contact'     => (string) ($row['contact'] ?? ''),
 		'seller_type' => (string) ($row['seller_type'] ?? ''),
 		'description' => (string) ($row['description'] ?? ''),
-		'address' => (string) ($row['address'] ?? ''),
+		'address'     => (string) ($row['address'] ?? ''),
 	];
 }
 
@@ -395,17 +396,17 @@ function bh_save_seller_profile(mysqli $conn, int $sellerId, array $profile): bo
 		INSERT INTO seller_profiles (user_id, shop_name, contact, seller_type, description, address)
 		VALUES (?, ?, ?, ?, ?, ?)
 		ON DUPLICATE KEY UPDATE
-			shop_name = VALUES(shop_name),
-			contact = VALUES(contact),
+			shop_name   = VALUES(shop_name),
+			contact     = VALUES(contact),
 			seller_type = VALUES(seller_type),
 			description = VALUES(description),
-			address = VALUES(address)
+			address     = VALUES(address)
 	");
-	$shopName = trim((string) ($profile['shop_name'] ?? ''));
-	$contact = trim((string) ($profile['contact'] ?? ''));
-	$sellerType = trim((string) ($profile['seller_type'] ?? ''));
+	$shopName    = trim((string) ($profile['shop_name'] ?? ''));
+	$contact     = trim((string) ($profile['contact'] ?? ''));
+	$sellerType  = trim((string) ($profile['seller_type'] ?? ''));
 	$description = trim((string) ($profile['description'] ?? ''));
-	$address = trim((string) ($profile['address'] ?? ''));
+	$address     = trim((string) ($profile['address'] ?? ''));
 	$stmt->bind_param('isssss', $sellerId, $shopName, $contact, $sellerType, $description, $address);
 	$ok = $stmt->execute();
 	$stmt->close();
@@ -420,9 +421,9 @@ function bh_save_seller_account(mysqli $conn, int $sellerId, array $account): bo
 		WHERE user_id = ?
 	");
 	$firstName = trim((string) ($account['first_name'] ?? ''));
-	$lastName = trim((string) ($account['last_name'] ?? ''));
-	$username = trim((string) ($account['username'] ?? ''));
-	$email = trim((string) ($account['email'] ?? ''));
+	$lastName  = trim((string) ($account['last_name'] ?? ''));
+	$username  = trim((string) ($account['username'] ?? ''));
+	$email     = trim((string) ($account['email'] ?? ''));
 	$stmt->bind_param('ssssi', $firstName, $lastName, $username, $email, $sellerId);
 	$ok = $stmt->execute();
 	$stmt->close();

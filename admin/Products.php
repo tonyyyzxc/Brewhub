@@ -12,22 +12,63 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['role'] !== 'admin') {
 
 $flash = null;
 
-// Handle delete listing
+// Handle delete
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $action    = (string) ($_POST['action'] ?? '');
-    $listingId = (int)    ($_POST['listing_id'] ?? 0);
+    $action    = (string) ($_POST['action']     ?? '');
+    $productId = (int)    ($_POST['product_id'] ?? 0);
 
     if ($action === 'delete') {
-        if ($listingId <= 0) {
-            $flash = ['type' => 'warning', 'text' => 'Invalid listing ID.'];
+        if ($productId <= 0) {
+            $flash = ['type' => 'warning', 'text' => 'Invalid product ID.'];
         } else {
-            $stmt = $conn->prepare("DELETE FROM listings WHERE listing_id = ?");
-            $stmt->bind_param('i', $listingId);
-            $ok = $stmt->execute();
-            $stmt->close();
-            $flash = $ok
-                ? ['type' => 'success', 'text' => 'Listing removed successfully.']
-                : ['type' => 'danger',  'text' => 'Listing not found.'];
+            $conn->begin_transaction();
+            try {
+                // Step 1: Get all listing_ids for this product
+                $listingIds = [];
+                $lstStmt = $conn->prepare("SELECT listing_id FROM listings WHERE product_id = ?");
+                $lstStmt->bind_param('i', $productId);
+                $lstStmt->execute();
+                $lstResult = $lstStmt->get_result();
+                while ($lstRow = $lstResult->fetch_assoc()) {
+                    $listingIds[] = (int) $lstRow['listing_id'];
+                }
+                $lstStmt->close();
+
+                // Step 2: Delete order_items tied to those listings
+                if (!empty($listingIds)) {
+                    $placeholders = implode(',', array_fill(0, count($listingIds), '?'));
+                    $types = str_repeat('i', count($listingIds));
+                    $oiStmt = $conn->prepare("DELETE FROM order_items WHERE listing_id IN ($placeholders)");
+                    $oiStmt->bind_param($types, ...$listingIds);
+                    $oiStmt->execute();
+                    $oiStmt->close();
+
+                    // Step 3: Delete cart_items tied to those listings
+                    $ciStmt = $conn->prepare("DELETE FROM cart_items WHERE listing_id IN ($placeholders)");
+                    $ciStmt->bind_param($types, ...$listingIds);
+                    $ciStmt->execute();
+                    $ciStmt->close();
+                }
+
+                // Step 4: Delete listings for this product
+                $delListings = $conn->prepare("DELETE FROM listings WHERE product_id = ?");
+                $delListings->bind_param('i', $productId);
+                $delListings->execute();
+                $delListings->close();
+
+                // Step 5: Delete the product itself
+                $delProduct = $conn->prepare("DELETE FROM products WHERE product_id = ?");
+                $delProduct->bind_param('i', $productId);
+                $delProduct->execute();
+                $delProduct->close();
+
+                $conn->commit();
+                $flash = ['type' => 'success', 'text' => 'Product and all related listings removed completely.'];
+
+            } catch (Throwable $e) {
+                $conn->rollback();
+                $flash = ['type' => 'danger', 'text' => 'Failed to delete product. Please try again.'];
+            }
         }
     }
 }
@@ -35,7 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // Fetch all listings joined with products and seller info
 $listings = [];
 $result = $conn->query("
-    SELECT 
+    SELECT
         l.listing_id,
         p.product_id,
         p.product_name,
@@ -130,23 +171,23 @@ while ($row = $result->fetch_assoc()) {
 					</div>
 				</div>
 
-						<?php if ($flash): ?>
-							<div class="bh-toast-container position-fixed top-0 end-0 p-3">
-								<div id="bhToast" class="toast bh-toast bh-toast--<?php echo htmlspecialchars($flash['type'], ENT_QUOTES, 'UTF-8'); ?>" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="3000">
-									<div class="toast-body d-flex align-items-start gap-2">
-										<?php if ($flash['type'] === 'danger'): ?>
-											<i class="bi bi-exclamation-triangle-fill bh-toast-icon" aria-hidden="true"></i>
-										<?php elseif ($flash['type'] === 'warning'): ?>
-											<i class="bi bi-exclamation-circle-fill bh-toast-icon" aria-hidden="true"></i>
-										<?php else: ?>
-											<i class="bi bi-check2-circle bh-toast-icon" aria-hidden="true"></i>
-										<?php endif; ?>
-										<div class="bh-toast-text"><?php echo htmlspecialchars($flash['text'], ENT_QUOTES, 'UTF-8'); ?></div>
-										<button type="button" class="btn-close ms-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-									</div>
-								</div>
+				<?php if ($flash): ?>
+					<div class="bh-toast-container position-fixed top-0 end-0 p-3">
+						<div id="bhToast" class="toast bh-toast bh-toast--<?php echo htmlspecialchars($flash['type'], ENT_QUOTES, 'UTF-8'); ?>" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="3000">
+							<div class="toast-body d-flex align-items-start gap-2">
+								<?php if ($flash['type'] === 'danger'): ?>
+									<i class="bi bi-exclamation-triangle-fill bh-toast-icon" aria-hidden="true"></i>
+								<?php elseif ($flash['type'] === 'warning'): ?>
+									<i class="bi bi-exclamation-circle-fill bh-toast-icon" aria-hidden="true"></i>
+								<?php else: ?>
+									<i class="bi bi-check2-circle bh-toast-icon" aria-hidden="true"></i>
+								<?php endif; ?>
+								<div class="bh-toast-text"><?php echo htmlspecialchars($flash['text'], ENT_QUOTES, 'UTF-8'); ?></div>
+								<button type="button" class="btn-close ms-auto" data-bs-dismiss="toast" aria-label="Close"></button>
 							</div>
-						<?php endif; ?>
+						</div>
+					</div>
+				<?php endif; ?>
 
 				<div class="row">
 					<div class="col-12">
@@ -187,14 +228,14 @@ while ($row = $result->fetch_assoc()) {
 										<tbody>
 											<?php foreach ($listings as $l): ?>
 												<tr>
-													<td class="fw-semibold">#<?php echo (int)$l['listing_id']; ?></td>
+													<td class="fw-semibold">#<?php echo (int) $l['listing_id']; ?></td>
 													<td class="fw-semibold"><?php echo htmlspecialchars($l['product_name'], ENT_QUOTES, 'UTF-8'); ?></td>
 													<td><span class="admin-badge"><?php echo htmlspecialchars($l['category'], ENT_QUOTES, 'UTF-8'); ?></span></td>
 													<td class="text-muted" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
 														<?php echo htmlspecialchars($l['description'] ?? '', ENT_QUOTES, 'UTF-8'); ?>
 													</td>
-													<td class="fw-semibold">₱<?php echo number_format((float)$l['price'], 2); ?></td>
-													<td class="text-muted"><?php echo (int)$l['stock']; ?></td>
+													<td class="fw-semibold">₱<?php echo number_format((float) $l['price'], 2); ?></td>
+													<td class="text-muted"><?php echo (int) $l['stock']; ?></td>
 													<td>
 														<div class="fw-semibold"><?php echo htmlspecialchars($l['seller_name'], ENT_QUOTES, 'UTF-8'); ?></div>
 														<div class="text-muted small">@<?php echo htmlspecialchars($l['seller_username'], ENT_QUOTES, 'UTF-8'); ?></div>
@@ -204,11 +245,11 @@ while ($row = $result->fetch_assoc()) {
 													</td>
 													<td class="text-end">
 														<form method="post" class="m-0"
-															onsubmit="return confirm('Remove this listing?');">
+															onsubmit="return confirm('Delete this product completely from the database? This cannot be undone.');">
 															<input type="hidden" name="action" value="delete">
-															<input type="hidden" name="listing_id" value="<?php echo (int)$l['listing_id']; ?>">
+															<input type="hidden" name="product_id" value="<?php echo (int) $l['product_id']; ?>">
 															<button type="submit" class="btn admin-btn admin-btn-danger btn-sm">
-																<i class="bi bi-trash3 me-1"></i>Remove
+																<i class="bi bi-trash3 me-1"></i>Delete
 															</button>
 														</form>
 													</td>
@@ -252,7 +293,6 @@ while ($row = $result->fetch_assoc()) {
 
 	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 	<script>
-		// Toast (success/error feedback)
 		document.addEventListener('DOMContentLoaded', () => {
 			const toastEl = document.getElementById('bhToast');
 			if (toastEl && window.bootstrap && bootstrap.Toast) {

@@ -18,7 +18,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($requestId <= 0) {
         $toast = ['type' => 'danger', 'text' => 'Invalid request ID.'];
+
     } elseif ($action === 'approve') {
+        // Fetch the seller request data
         $stmt = $conn->prepare("
             SELECT user_id, contact, shop_name, seller_type, description, address
             FROM seller_requests
@@ -30,69 +32,77 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->close();
 
         if ($row) {
-            $uid = (int) $row['user_id'];
-            $conn->query("UPDATE users SET role = 'seller' WHERE user_id = $uid");
-            // Update request status
-            $conn->query("UPDATE seller_requests SET status = 'approved' WHERE request_id = $requestId");
-            $toast = ['type' => 'success', 'text' => 'Seller request approved successfully!'];
-            $contact = trim((string) ($row['contact'] ?? ''));
-            $shopName = trim((string) ($row['shop_name'] ?? ''));
-            $sellerType = trim((string) ($row['seller_type'] ?? ''));
+            $uid         = (int)    $row['user_id'];
+            $contact     = trim((string) ($row['contact']     ?? ''));
+            $shopName    = trim((string) ($row['shop_name']   ?? ''));
+            $sellerType  = trim((string) ($row['seller_type'] ?? ''));
             $description = trim((string) ($row['description'] ?? ''));
-            $address = trim((string) ($row['address'] ?? ''));
+            $address     = trim((string) ($row['address']     ?? ''));
 
             $conn->begin_transaction();
             try {
-                $roleStmt = $conn->prepare("UPDATE users SET role = 'both' WHERE user_id = ?");
+                // 1. Update user role to 'seller'
+                $roleStmt = $conn->prepare("UPDATE users SET role = 'seller' WHERE user_id = ?");
                 $roleStmt->bind_param('i', $uid);
                 $roleStmt->execute();
                 $roleStmt->close();
 
+                // 2. Create or update seller_profiles row
                 $profileStmt = $conn->prepare("
                     INSERT INTO seller_profiles (user_id, shop_name, contact, seller_type, description, address)
                     VALUES (?, ?, ?, ?, ?, ?)
                     ON DUPLICATE KEY UPDATE
-                        shop_name = VALUES(shop_name),
-                        contact = VALUES(contact),
+                        shop_name   = VALUES(shop_name),
+                        contact     = VALUES(contact),
                         seller_type = VALUES(seller_type),
                         description = VALUES(description),
-                        address = VALUES(address)
+                        address     = VALUES(address)
                 ");
                 $profileStmt->bind_param('isssss', $uid, $shopName, $contact, $sellerType, $description, $address);
                 $profileStmt->execute();
                 $profileStmt->close();
 
+                // 3. Mark the request as approved
                 $requestStmt = $conn->prepare("UPDATE seller_requests SET status = 'approved' WHERE request_id = ?");
                 $requestStmt->bind_param('i', $requestId);
                 $requestStmt->execute();
                 $requestStmt->close();
 
                 $conn->commit();
-                $message = '<div class="alert alert-success">Seller request approved and shop profile created successfully!</div>';
+                $toast = ['type' => 'success', 'text' => 'Seller approved and shop profile created!'];
+
             } catch (Throwable $e) {
                 $conn->rollback();
-                $message = '<div class="alert alert-danger">Unable to approve seller request.</div>';
+                $toast = ['type' => 'danger', 'text' => 'Failed to approve seller request. Please try again.'];
             }
         } else {
             $toast = ['type' => 'danger', 'text' => 'Request not found.'];
         }
+
     } elseif ($action === 'reject') {
-        $ok = $conn->query("UPDATE seller_requests SET status = 'rejected' WHERE request_id = $requestId");
+        $stmt = $conn->prepare("UPDATE seller_requests SET status = 'rejected' WHERE request_id = ?");
+        $stmt->bind_param('i', $requestId);
+        $ok = $stmt->execute();
+        $stmt->close();
         $toast = $ok
             ? ['type' => 'warning', 'text' => 'Seller request rejected.']
-            : ['type' => 'danger', 'text' => 'Request not found.'];
+            : ['type' => 'danger',  'text' => 'Request not found.'];
+
     } elseif ($action === 'delete') {
-        $ok = $conn->query("DELETE FROM seller_requests WHERE request_id = $requestId");
+        $stmt = $conn->prepare("DELETE FROM seller_requests WHERE request_id = ?");
+        $stmt->bind_param('i', $requestId);
+        $ok = $stmt->execute();
+        $stmt->close();
         $toast = $ok
             ? ['type' => 'success', 'text' => 'Request deleted successfully!']
-            : ['type' => 'danger', 'text' => 'Request not found.'];
+            : ['type' => 'danger',  'text' => 'Request not found.'];
     }
 }
 
-//  Fetch all requests from DB
+// Fetch all requests from DB
 $requests = [];
 $result = $conn->query("
-    SELECT 
+    SELECT
         sr.request_id,
         sr.shop_name,
         sr.description,
@@ -113,7 +123,7 @@ while ($row = $result->fetch_assoc()) {
     $requests[] = $row;
 }
 
-// Pending count for badge 
+// Pending count for badge
 $pendingCount = 0;
 foreach ($requests as $r) {
     if (strtolower($r['status']) === 'pending') $pendingCount++;
@@ -152,7 +162,6 @@ foreach ($requests as $r) {
         </div>
     </nav>
 
-    <!-- Sidebar -->
     <aside class="admin-sidebar" id="adminSidebar">
         <div class="admin-sidebar-header">
             <a class="admin-sidebar-brand" href="admin.php">Brewhub</a>
@@ -178,45 +187,31 @@ foreach ($requests as $r) {
         </div>
     </aside>
 
-    <!-- Main -->
     <main class="admin-main admin-main-with-sidebar">
-        <section class="admin-dashboard py-4">
+        <section class="admin-dashboard py-5">
             <div class="container-fluid px-4 px-lg-5">
                 <div class="admin-dashboard-header mb-4">
-                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                    <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap">
                         <div>
                             <h2 class="admin-dashboard-title mb-1">Seller Requests</h2>
-                            <p class="admin-dashboard-subtitle mb-0">Review and approve seller applications</p>
+                            <div class="text-muted">Review and manage seller applications.</div>
                         </div>
-                        <div class="d-flex gap-2">
-                            <div class="dropdown">
-                                <button class="btn btn-sm dropdown-toggle" type="button"
-                                    id="filterStatusDropdown" data-bs-toggle="dropdown"
-                                    style="background:rgba(255,255,255,0.72);border:1px solid rgba(111,78,55,0.25);color:rgba(63,41,31,0.92);font-weight:600;border-radius:10px;padding:0.5rem 1rem;">
-                                    <i class="bi bi-funnel me-1"></i>
-                                    <span id="filterStatusText">All Status</span>
-                                </button>
-                                <ul class="dropdown-menu" aria-labelledby="filterStatusDropdown">
-                                    <li><a class="dropdown-item" href="#" data-value="">All Status</a></li>
-                                    <li><a class="dropdown-item" href="#" data-value="pending">Pending</a></li>
-                                    <li><a class="dropdown-item" href="#" data-value="approved">Approved</a></li>
-                                    <li><a class="dropdown-item" href="#" data-value="rejected">Rejected</a></li>
-                                </ul>
-                            </div>
-                        </div>
+                        <a class="btn admin-btn admin-btn-ghost btn-sm" href="admin.php">
+                            <i class="bi bi-arrow-left me-1"></i>Back
+                        </a>
                     </div>
                 </div>
 
                 <?php if ($toast): ?>
                     <div class="bh-toast-container position-fixed top-0 end-0 p-3">
-                        <div id="bhToast" class="toast bh-toast bh-toast--<?php echo htmlspecialchars($toast['type'], ENT_QUOTES, 'UTF-8'); ?>" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="3000">
+                        <div id="bhToast" class="toast bh-toast bh-toast--<?php echo htmlspecialchars($toast['type'], ENT_QUOTES, 'UTF-8'); ?>" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="3500">
                             <div class="toast-body d-flex align-items-start gap-2">
                                 <?php if ($toast['type'] === 'danger'): ?>
-                                    <i class="bi bi-exclamation-triangle-fill bh-toast-icon" aria-hidden="true"></i>
+                                    <i class="bi bi-exclamation-triangle-fill bh-toast-icon"></i>
                                 <?php elseif ($toast['type'] === 'warning'): ?>
-                                    <i class="bi bi-exclamation-circle-fill bh-toast-icon" aria-hidden="true"></i>
+                                    <i class="bi bi-exclamation-circle-fill bh-toast-icon"></i>
                                 <?php else: ?>
-                                    <i class="bi bi-check2-circle bh-toast-icon" aria-hidden="true"></i>
+                                    <i class="bi bi-check2-circle bh-toast-icon"></i>
                                 <?php endif; ?>
                                 <div class="bh-toast-text"><?php echo htmlspecialchars($toast['text'], ENT_QUOTES, 'UTF-8'); ?></div>
                                 <button type="button" class="btn-close ms-auto" data-bs-dismiss="toast" aria-label="Close"></button>
@@ -263,7 +258,7 @@ foreach ($requests as $r) {
                                                 $status = strtolower($r['status']);
                                             ?>
                                             <tr data-status="<?php echo $status; ?>">
-                                                <td class="fw-semibold">#<?php echo $r['request_id']; ?></td>
+                                                <td class="fw-semibold">#<?php echo (int) $r['request_id']; ?></td>
                                                 <td>
                                                     <div class="fw-semibold"><?php echo htmlspecialchars($r['full_name'], ENT_QUOTES, 'UTF-8'); ?></div>
                                                     <div class="text-muted small">@<?php echo htmlspecialchars($r['username'], ENT_QUOTES, 'UTF-8'); ?></div>
@@ -287,7 +282,7 @@ foreach ($requests as $r) {
                                                     <form method="POST" style="display:inline;"
                                                         onsubmit="return confirm('Approve this seller request?');">
                                                         <input type="hidden" name="action" value="approve">
-                                                        <input type="hidden" name="request_id" value="<?php echo $r['request_id']; ?>">
+                                                        <input type="hidden" name="request_id" value="<?php echo (int) $r['request_id']; ?>">
                                                         <button type="submit" class="btn admin-btn admin-btn-primary btn-sm">
                                                             <i class="bi bi-check2-circle me-1"></i>Approve
                                                         </button>
@@ -295,16 +290,16 @@ foreach ($requests as $r) {
                                                     <form method="POST" style="display:inline;"
                                                         onsubmit="return confirm('Reject this seller request?');">
                                                         <input type="hidden" name="action" value="reject">
-                                                        <input type="hidden" name="request_id" value="<?php echo $r['request_id']; ?>">
+                                                        <input type="hidden" name="request_id" value="<?php echo (int) $r['request_id']; ?>">
                                                         <button type="submit" class="btn admin-btn admin-btn-ghost btn-sm">
                                                             <i class="bi bi-x-circle me-1"></i>Reject
                                                         </button>
                                                     </form>
                                                     <?php endif; ?>
                                                     <form method="POST" style="display:inline;"
-                                                        onsubmit="return confirm('Delete this request?');">
+                                                        onsubmit="return confirm('Delete this request permanently?');">
                                                         <input type="hidden" name="action" value="delete">
-                                                        <input type="hidden" name="request_id" value="<?php echo $r['request_id']; ?>">
+                                                        <input type="hidden" name="request_id" value="<?php echo (int) $r['request_id']; ?>">
                                                         <button type="submit" class="btn admin-btn admin-btn-danger btn-sm">
                                                             <i class="bi bi-trash3 me-1"></i>Remove
                                                         </button>
@@ -324,7 +319,6 @@ foreach ($requests as $r) {
         </section>
     </main>
 
-    <!-- Footer -->
     <footer class="bh-footer-bar px-4 px-lg-5 py-4 mt-auto">
         <div class="container-fluid bh-footer-bar-container">
             <div class="bh-footer-bar-left">
@@ -351,7 +345,6 @@ foreach ($requests as $r) {
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Toast (success/error feedback)
         document.addEventListener('DOMContentLoaded', () => {
             const toastEl = document.getElementById('bhToast');
             if (toastEl && window.bootstrap && bootstrap.Toast) {
@@ -359,12 +352,10 @@ foreach ($requests as $r) {
             }
         });
 
-        // Sidebar toggle
         document.getElementById('sidebarToggle').addEventListener('click', () => {
             document.body.classList.toggle('admin-sidebar-collapsed');
         });
 
-        // Filter by status
         document.querySelectorAll('#filterStatusDropdown + .dropdown-menu .dropdown-item').forEach(item => {
             item.addEventListener('click', function (e) {
                 e.preventDefault();

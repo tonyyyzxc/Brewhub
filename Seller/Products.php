@@ -164,8 +164,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 			if ($formAction === 'add') {
 				$conn->begin_transaction();
 				try {
-					$stmt = $conn->prepare("INSERT INTO products (product_name, category, description, image_path) VALUES (?, ?, ?, ?)");
-					$stmt->bind_param('ssss', $productName, $productCategory, $productDescription, $imagePath);
+					$stmt = $conn->prepare("INSERT INTO products (user_id, product_name, category, description, image_path) VALUES (?, ?, ?, ?, ?)");
+					$stmt->bind_param('issss', $sellerId, $productName, $productCategory, $productDescription, $imagePath);
 					$stmt->execute();
 					$productId = (int) $conn->insert_id;
 					$stmt->close();

@@ -6,10 +6,9 @@ require_once __DIR__ . '/includes/auth_helpers.php';
 
 header('Content-Type: application/json');
 
-
-//admin credentials
+// Admin credentials
 $adminEmail     = 'admin@gmail.com';
-$adminPassword  = 'adminpass';  
+$adminPassword  = 'adminpass';
 $adminFirstname = 'admin';
 $adminLastname  = 'admin';
 $adminUsername  = 'admin';
@@ -23,7 +22,7 @@ $check->bind_result($adminId, $existingRole);
 $check->fetch();
 
 if ($check->num_rows === 0) {
-    $check -> close();
+    $check->close();
     $hashed = password_hash($adminPassword, PASSWORD_DEFAULT);
     $insert = $conn->prepare(
         "INSERT INTO users (email, FirstName, LastName, password, username, role)
@@ -44,8 +43,6 @@ if ($check->num_rows === 0) {
 
 // ============ //
 
-
-
 if ($_SERVER["REQUEST_METHOD"] !== "POST") {
     echo json_encode(['status' => 'error', 'message' => 'Invalid request.']);
     exit();
@@ -61,7 +58,7 @@ if (!bh_verify_recaptcha($_POST['g-recaptcha-response'] ?? null)) {
     exit();
 }
 
-$sql = "SELECT user_id, email, FirstName, LastName, password, username, role FROM users where email = ?";
+$sql = "SELECT user_id, email, FirstName, LastName, password, username, role FROM users WHERE email = ?";
 
 if ($stmt = $conn->prepare($sql)) {
     $stmt->bind_param("s", $param_email);
@@ -77,58 +74,37 @@ if ($stmt = $conn->prepare($sql)) {
             if ($stmt->fetch() && password_verify($_POST['password'], (string) $hashed_password)) {
                 if (empty($role)) $role = 'buyer';
 
-                        if(empty($role)) $role = 'buyer';
+                // Legacy compatibility: convert 'both' to 'seller'
+                if (strtolower((string) $role) === 'both') {
+                    $role = 'seller';
+                    $fixRole = $conn->prepare("UPDATE users SET role = 'seller' WHERE user_id = ?");
+                    $fixRole->bind_param('i', $ID);
+                    $fixRole->execute();
+                    $fixRole->close();
+                }
 
-                        // Legacy compatibility: convert 'both' to 'seller'
-                        if (strtolower((string) $role) === 'both') {
-                            $role = 'seller';
-                            $fixRole = $conn->prepare("UPDATE users SET role = 'seller' WHERE user_id = ?");
-                            $fixRole->bind_param('i', $ID);
-                            $fixRole->execute();
-                            $fixRole->close();
-                        }
-
-                        $_SESSION['loggedin'] = true;
-                        $_SESSION['user_id'] = $ID;
-                        $_SESSION['email'] = $email;
-                        $_SESSION['FirstName'] = $firstname;
-                        $_SESSION['LastName'] = $lastname;
-                        $_SESSION['username'] = $username;
-                        $_SESSION['role'] = $role;
-
-
-                        if($role == 'admin'){
-                            echo json_encode(['status' => 'success', 'redirect' => 'admin/admin.php']);
-                        } else if ($role == 'seller'){
-                            echo json_encode(['status' => 'success', 'redirect' => 'Seller/SellerDashboard.php']);
-                        } else {
-                            echo json_encode(['status' => 'success', 'redirect' => 'Buyer/Dashboard.php']);
-                        }
-                        exit();
-                
-                    } else {
-                        echo json_encode(['status' => 'error', 'message' => 'Invalid email or password']);
-                    }
-                } 
-            } else {
-                echo json_encode(['status' => 'error', 'message' => 'Invalid email or password']);
                 bh_set_login_session([
-                    'user_id' => $ID,
-                    'email' => $email,
+                    'user_id'   => $ID,
+                    'email'     => $email,
                     'FirstName' => $firstname,
-                    'LastName' => $lastname,
-                    'username' => $username,
-                    'role' => $role,
+                    'LastName'  => $lastname,
+                    'username'  => $username,
+                    'role'      => $role,
                 ]);
+
                 echo json_encode(['status' => 'success', 'redirect' => bh_role_redirect($role)]);
                 exit();
-            }
-        }
 
-        echo json_encode(['status' => 'error', 'message' => 'Invalid email or password']);
+            } else {
+                echo json_encode(['status' => 'error', 'message' => 'Invalid email or password']);
+            }
+        } else {
+            echo json_encode(['status' => 'error', 'message' => 'Invalid email or password']);
+        }
     } else {
-       echo json_encode(['status' => 'error', 'message' => 'Something went wrong!']);
+        echo json_encode(['status' => 'error', 'message' => 'Something went wrong!']);
     }
+
     $stmt->close();
 } else {
     echo json_encode(['status' => 'error', 'message' => 'Something went wrong!']);
