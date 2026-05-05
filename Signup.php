@@ -1,3 +1,11 @@
+<?php
+require_once __DIR__ . '/includes/app_keys.php';
+
+$recaptchaSiteKey = defined('RECAPTCHA_SITE_KEY') ? trim((string) RECAPTCHA_SITE_KEY) : '';
+$googleConfigured = defined('GOOGLE_CLIENT_ID') && defined('GOOGLE_CLIENT_SECRET')
+	&& trim((string) GOOGLE_CLIENT_ID) !== ''
+	&& trim((string) GOOGLE_CLIENT_SECRET) !== '';
+?>
 <!doctype html>
 <html lang="en">
 <head>
@@ -10,6 +18,9 @@
 	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
 	<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 	<link href="Style.css" rel="stylesheet">
+	<?php if ($recaptchaSiteKey !== ''): ?>
+	<script src="https://www.google.com/recaptcha/api.js" async defer></script>
+	<?php endif; ?>
 </head>
 
 <body class="auth-page">
@@ -22,22 +33,22 @@
 			<section class="col-lg-7 auth-pane">
 				<div class="form-shell">
 					<header class="text-center">
+						<img src="Assets/Brew_Hub.png" alt="" style="width: 150px; height: 150px;">
 						<h1>Create Account</h1>
 						<p>Join Brewhub to manage your coffee shop essentials</p>
 					</header>
 
 					<form id="signupForm" method="POST" autocomplete="off">
-	
-						<div class="mb-2">
-                		<!-- 'for' must match the 'id' of the input below -->
-                			<label for="Firstname" class="form-label">First Name</label>
-                			<input id="Firstname" name="Firstname" type="text" class="form-control" required>
-           				 </div>
 
-            			<div class="mb-2">
-               			 	<label for="Lastname" class="form-label">Last Name</label>
-               			 	<input id="Lastname" name="Lastname" type="text" class="form-control" required>
-            			</div>
+						<div class="mb-2">
+							<label for="Firstname" class="form-label">First Name</label>
+							<input id="Firstname" name="Firstname" type="text" class="form-control" required>
+						</div>
+
+						<div class="mb-2">
+							<label for="Lastname" class="form-label">Last Name</label>
+							<input id="Lastname" name="Lastname" type="text" class="form-control" required>
+						</div>
 
 						<div class="mb-2">
 							<label for="username" class="form-label">Username</label>
@@ -54,13 +65,21 @@
 							<input id="password" name="password" type="password" class="form-control border-0 border-bottom rounded-0" required>
 						</div>
 
+						<?php if ($recaptchaSiteKey !== ''): ?>
+						<div class="recaptcha-wrap mb-3">
+							<div class="g-recaptcha" data-sitekey="<?php echo htmlspecialchars($recaptchaSiteKey, ENT_QUOTES, 'UTF-8'); ?>"></div>
+						</div>
+						<?php endif; ?>
+
 						<button type="submit" class="btn btn-login w-100">Sign Up</button>
 					</form>
 
 					<div class="or-divider" aria-hidden="true"><span>OR</span></div>
 
-					<div class="social-row"> 	
-						<a class="social-btn" href="#"><i class="bi bi-google"></i> Sign in with Google</a>
+					<div class="social-row">
+						<a class="social-btn<?php echo $googleConfigured ? '' : ' disabled'; ?>" href="<?php echo $googleConfigured ? 'google-auth.php' : '#'; ?>" <?php echo $googleConfigured ? '' : 'aria-disabled="true"'; ?>>
+							<i class="bi bi-google"></i> Sign up with Google
+						</a>
 					</div>
 
 					<p class="signup-note">Already have an account? <a href="Login.php">Log In</a></p>
@@ -69,10 +88,24 @@
 		</div>
 	</main>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 	document.getElementById('signupForm').addEventListener('submit', function(e) {
-		e.preventDefault(); 
+		e.preventDefault();
+
+		<?php if ($recaptchaSiteKey !== ''): ?>
+		const recaptchaResponse = grecaptcha.getResponse();
+		if (!recaptchaResponse) {
+			Swal.fire({
+				icon: 'warning',
+				title: 'reCAPTCHA Required',
+				text: 'Please complete the reCAPTCHA before signing up.',
+				confirmButtonColor: '#f0ad4e'
+			});
+			return;
+		}
+		<?php endif; ?>
 
 		const formData = new FormData(this);
 
@@ -80,10 +113,9 @@
 			method: 'POST',
 			body: formData
 		})
-
 		.then(response => response.json())
 		.then(data => {
-			if(data.status === 'success'){
+			if (data.status === 'success') {
 				Swal.fire({
 					icon: 'success',
 					title: 'Welcome to BrewHub!',
@@ -93,7 +125,10 @@
 				}).then(() => {
 					window.location.href = 'Login.php';
 				});
-			} else if (data.status === 'exists'){
+			} else if (data.status === 'exists') {
+				<?php if ($recaptchaSiteKey !== ''): ?>
+				if (window.grecaptcha) grecaptcha.reset();
+				<?php endif; ?>
 				Swal.fire({
 					icon: 'warning',
 					title: 'Email Already Exists!',
@@ -102,6 +137,9 @@
 					confirmButtonColor: '#f0ad4e'
 				});
 			} else {
+				<?php if ($recaptchaSiteKey !== ''): ?>
+				if (window.grecaptcha) grecaptcha.reset();
+				<?php endif; ?>
 				Swal.fire({
 					icon: 'error',
 					title: 'Oops!',
@@ -112,6 +150,9 @@
 			}
 		})
 		.catch(error => {
+			<?php if ($recaptchaSiteKey !== ''): ?>
+			if (window.grecaptcha) grecaptcha.reset();
+			<?php endif; ?>
 			Swal.fire({
 				icon: 'error',
 				title: 'Connection Error',
