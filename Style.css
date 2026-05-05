@@ -2764,6 +2764,8 @@ body.admin-sidebar-collapsed .admin-sidebar {
 .bh-shop-link:hover {
     color: #8B4513;
     text-decoration: underline;
+}
+
 .recaptcha-wrap {
     display: flex;
     justify-content: center;
