@@ -2,6 +2,9 @@
 
 session_start();
 include 'config.php';
+require_once __DIR__ . '/includes/auth_helpers.php';
+
+header('Content-Type: application/json');
 
 
 //admin credentials
@@ -43,28 +46,36 @@ if ($check->num_rows === 0) {
 
 
 
-if($_SERVER["REQUEST_METHOD"] == "POST"){
-    
-    if(isset($_POST['email']) && isset($_POST['password']) && !empty($_POST['email']) && !empty($_POST['password'])){
+if ($_SERVER["REQUEST_METHOD"] !== "POST") {
+    echo json_encode(['status' => 'error', 'message' => 'Invalid request.']);
+    exit();
+}
 
-    $sql = "SELECT user_id, email, FirstName, LastName, password, username, role FROM users where email = ?";
+if (empty($_POST['email']) || empty($_POST['password'])) {
+    echo json_encode(['status' => 'error', 'message' => 'Email and password are required.']);
+    exit();
+}
 
-    if($stmt = $conn->prepare($sql)){
-        $stmt->bind_param("s", $param_email);
+if (!bh_verify_recaptcha($_POST['g-recaptcha-response'] ?? null)) {
+    echo json_encode(['status' => 'error', 'message' => 'Please complete the reCAPTCHA check.']);
+    exit();
+}
 
-        $param_email = $_POST['email'];
+$sql = "SELECT user_id, email, FirstName, LastName, password, username, role FROM users where email = ?";
 
-        if($stmt->execute()){
+if ($stmt = $conn->prepare($sql)) {
+    $stmt->bind_param("s", $param_email);
 
-            $stmt->store_result();
+    $param_email = $_POST['email'];
 
-            if($stmt->num_rows == 1){
+    if ($stmt->execute()) {
+        $stmt->store_result();
 
-                $stmt->bind_result($ID, $email, $firstname, $lastname, $hashed_password, $username, $role);
+        if ($stmt->num_rows == 1) {
+            $stmt->bind_result($ID, $email, $firstname, $lastname, $hashed_password, $username, $role);
 
-                if($stmt->fetch()){
-                    
-                    if(password_verify($_POST['password'], $hashed_password)){
+            if ($stmt->fetch() && password_verify($_POST['password'], (string) $hashed_password)) {
+                if (empty($role)) $role = 'buyer';
 
                         if(empty($role)) $role = 'buyer';
 
@@ -101,12 +112,26 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
                 } 
             } else {
                 echo json_encode(['status' => 'error', 'message' => 'Invalid email or password']);
+                bh_set_login_session([
+                    'user_id' => $ID,
+                    'email' => $email,
+                    'FirstName' => $firstname,
+                    'LastName' => $lastname,
+                    'username' => $username,
+                    'role' => $role,
+                ]);
+                echo json_encode(['status' => 'success', 'redirect' => bh_role_redirect($role)]);
+                exit();
             }
-        } else {
-           echo json_encode(['status' => 'error', 'message' => 'Something went wrong!']);
         }
-          $stmt->close();
-    } 
+
+        echo json_encode(['status' => 'error', 'message' => 'Invalid email or password']);
+    } else {
+       echo json_encode(['status' => 'error', 'message' => 'Something went wrong!']);
     }
-    $conn->close();
+    $stmt->close();
+} else {
+    echo json_encode(['status' => 'error', 'message' => 'Something went wrong!']);
 }
+
+$conn->close();

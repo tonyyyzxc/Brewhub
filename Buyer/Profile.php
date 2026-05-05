@@ -68,6 +68,12 @@ if ($stmt) {
     }
     $stmt->close();
 }
+$roleLabel = match (strtolower($profile['role'])) {
+    'both' => 'Seller/Buyer',
+    'seller' => 'Seller',
+    'admin' => 'Admin',
+    default => 'Buyer',
+};
 
 $showToast    = false;
 $toastMessage = '';
@@ -246,7 +252,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
                                 <div class="profile-info-item">
                                     <div class="profile-info-label"><i class="bi bi-shield me-2"></i>Role</div>
-                                    <div class="profile-info-value"><?php echo htmlspecialchars(ucfirst($profile['role']), ENT_QUOTES, 'UTF-8'); ?></div>
+                                    <div class="profile-info-value"><?php echo htmlspecialchars($roleLabel, ENT_QUOTES, 'UTF-8'); ?></div>
                                 </div>
                             </div>
 

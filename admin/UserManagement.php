@@ -10,6 +10,34 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['role'] !== 'admin') {
 
 $toast = null;
 
+function admin_execute_statement(mysqli $conn, string $sql, string $types = '', mixed ...$params): mysqli_stmt
+{
+    $stmt = $conn->prepare($sql);
+    if (!$stmt) {
+        throw new RuntimeException($conn->error);
+    }
+    if ($types !== '') {
+        $stmt->bind_param($types, ...$params);
+    }
+    if (!$stmt->execute()) {
+        $error = $stmt->error;
+        $stmt->close();
+        throw new RuntimeException($error);
+    }
+    return $stmt;
+}
+
+function admin_role_label(?string $role): string
+{
+    return match ($role) {
+        'both' => 'Seller/Buyer',
+        'seller' => 'Seller',
+        'buyer' => 'Buyer',
+        'admin' => 'Admin',
+        default => ucfirst((string) $role),
+    };
+}
+
 // Add Admin
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_admin') {
     $username  = trim($_POST['username']   ?? '');
@@ -40,13 +68,65 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
     if ($userId <= 0) {
         $toast = ['type' => 'danger', 'text' => 'Invalid user ID.'];
     } else {
-        $stmt = $conn->prepare("DELETE FROM users WHERE user_id = ?");
-        $stmt->bind_param('i', $userId);
-        $ok = $stmt->execute();
-        $stmt->close();
-        $toast = $ok
-            ? ['type' => 'success', 'text' => 'User deleted successfully!']
-            : ['type' => 'danger', 'text' => 'User not found.'];
+        $userStmt = admin_execute_statement($conn, "SELECT user_id FROM users WHERE user_id = ?", 'i', $userId);
+        $userExists = $userStmt->get_result()->num_rows > 0;
+        $userStmt->close();
+
+        if (!$userExists) {
+            $message = '<div class="alert alert-danger">User not found.</div>';
+        } else {
+            $productIds = [];
+            $productStmt = admin_execute_statement($conn, "SELECT DISTINCT product_id FROM listings WHERE user_id = ?", 'i', $userId);
+            $productResult = $productStmt->get_result();
+            while ($product = $productResult->fetch_assoc()) {
+                $productIds[] = (int) $product['product_id'];
+            }
+            $productStmt->close();
+
+            $conn->begin_transaction();
+            try {
+                admin_execute_statement(
+                    $conn,
+                    "DELETE oi FROM order_items oi JOIN orders o ON oi.order_id = o.order_id WHERE o.buyer_id = ?",
+                    'i',
+                    $userId
+                )->close();
+                admin_execute_statement(
+                    $conn,
+                    "DELETE oi FROM order_items oi JOIN listings l ON oi.listing_id = l.listing_id WHERE l.user_id = ?",
+                    'i',
+                    $userId
+                )->close();
+                admin_execute_statement(
+                    $conn,
+                    "DELETE ci FROM cart_items ci LEFT JOIN listings l ON ci.listing_id = l.listing_id WHERE ci.buyer_id = ? OR l.user_id = ?",
+                    'ii',
+                    $userId,
+                    $userId
+                )->close();
+                admin_execute_statement($conn, "DELETE FROM orders WHERE buyer_id = ?", 'i', $userId)->close();
+                admin_execute_statement($conn, "DELETE FROM seller_profiles WHERE user_id = ?", 'i', $userId)->close();
+                admin_execute_statement($conn, "DELETE FROM seller_requests WHERE user_id = ?", 'i', $userId)->close();
+                admin_execute_statement($conn, "DELETE FROM listings WHERE user_id = ?", 'i', $userId)->close();
+                admin_execute_statement($conn, "DELETE FROM users WHERE user_id = ?", 'i', $userId)->close();
+
+                if (!empty($productIds)) {
+                    $placeholders = implode(',', array_fill(0, count($productIds), '?'));
+                    admin_execute_statement(
+                        $conn,
+                        "DELETE p FROM products p LEFT JOIN listings l ON l.product_id = p.product_id WHERE p.product_id IN ($placeholders) AND l.listing_id IS NULL",
+                        str_repeat('i', count($productIds)),
+                        ...$productIds
+                    )->close();
+                }
+
+                $conn->commit();
+                $message = '<div class="alert alert-success">User and related records deleted successfully!</div>';
+            } catch (Throwable $e) {
+                $conn->rollback();
+                $message = '<div class="alert alert-danger">Failed to delete user and related records.</div>';
+            }
+        }
     }
 }
 
@@ -183,7 +263,7 @@ while ($row = $result->fetch_assoc()) {
                                                 <td class="fw-semibold"><?php echo htmlspecialchars($user['username'] ?? '', ENT_QUOTES, 'UTF-8'); ?></td>
                                                 <td><?php echo htmlspecialchars($user['full_name'] ?? '', ENT_QUOTES, 'UTF-8'); ?></td>
                                                 <td class="text-muted"><?php echo htmlspecialchars($user['email'], ENT_QUOTES, 'UTF-8'); ?></td>
-                                                <td><span class="admin-badge"><?php echo htmlspecialchars($user['role'], ENT_QUOTES, 'UTF-8'); ?></span></td>
+                                                <td><span class="admin-badge"><?php echo htmlspecialchars(admin_role_label($user['role'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></span></td>
                                                 <td><span class="admin-status"><?php echo htmlspecialchars($user['status'], ENT_QUOTES, 'UTF-8'); ?></span></td>
                                                 <td class="text-muted"><?php echo !empty($user['created_at']) ? date('M d, Y', strtotime($user['created_at'])) : '-'; ?></td>
                                                 <td class="text-end">

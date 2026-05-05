@@ -10,6 +10,7 @@ bh_require_role(['seller'], '../Login.php');
 $sellerId = bh_current_user_id();
 $sellerProfile = bh_fetch_seller_profile($conn, $sellerId);
 $flash = null;
+bh_ensure_checkout_columns($conn);
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 	$orderId = (int) ($_POST['order_id'] ?? 0);
@@ -43,6 +44,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 $stmt = $conn->prepare("
 	SELECT
 		o.order_id,
+		o.customer_name,
+		o.customer_phone,
+		o.customer_address,
 		o.status,
 		o.order_date,
 		u.FirstName,
@@ -120,6 +124,8 @@ $stmt->close();
 							<tr>
 								<th>Order ID</th>
 								<th>Customer</th>
+								<th>Phone</th>
+								<th>Address</th>
 								<th>Item</th>
 								<th>Qty</th>
 								<th>Subtotal</th>
@@ -129,12 +135,14 @@ $stmt->close();
 						</thead>
 						<tbody>
 							<?php if (empty($orders)): ?>
-								<tr><td colspan="7" class="text-center text-muted py-4">No orders yet.</td></tr>
+								<tr><td colspan="9" class="text-center text-muted py-4">No orders yet.</td></tr>
 							<?php else: ?>
 								<?php foreach ($orders as $order): ?>
 									<tr>
 										<td>#<?php echo (int) $order['order_id']; ?></td>
-										<td><?php echo htmlspecialchars(trim((string) $order['FirstName'] . ' ' . (string) $order['LastName']), ENT_QUOTES, 'UTF-8'); ?></td>
+										<td><?php echo htmlspecialchars(trim((string) ($order['customer_name'] ?: trim((string) $order['FirstName'] . ' ' . (string) $order['LastName']))), ENT_QUOTES, 'UTF-8'); ?></td>
+										<td><?php echo htmlspecialchars((string) ($order['customer_phone'] ?: '-'), ENT_QUOTES, 'UTF-8'); ?></td>
+										<td><?php echo htmlspecialchars((string) ($order['customer_address'] ?: '-'), ENT_QUOTES, 'UTF-8'); ?></td>
 										<td><?php echo htmlspecialchars((string) ($order['product_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></td>
 										<td><?php echo (int) ($order['quantity'] ?? 0); ?></td>
 										<td>PHP <?php echo number_format((float) ($order['subtotal'] ?? 0), 2); ?></td>

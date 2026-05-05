@@ -62,7 +62,12 @@ document.addEventListener('DOMContentLoaded', function() {
         body: formData
       })
       .then(response => response.text())
-      .then(() => {
+      .then(result => {
+        if (result.trim() !== 'ok') {
+          alert('Please complete your checkout information and try again.');
+          return;
+        }
+
         // Close modal
         const modal = bootstrap.Modal.getInstance(document.getElementById('checkoutModal'));
         if (modal) {

@@ -19,14 +19,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($requestId <= 0) {
         $toast = ['type' => 'danger', 'text' => 'Invalid request ID.'];
     } elseif ($action === 'approve') {
-        // Get user_id from request
-        $row = $conn->query("SELECT user_id FROM seller_requests WHERE request_id = $requestId")->fetch_assoc();
+        $stmt = $conn->prepare("
+            SELECT user_id, contact, shop_name, seller_type, description, address
+            FROM seller_requests
+            WHERE request_id = ?
+        ");
+        $stmt->bind_param('i', $requestId);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
         if ($row) {
             $uid = (int) $row['user_id'];
             $conn->query("UPDATE users SET role = 'seller' WHERE user_id = $uid");
             // Update request status
             $conn->query("UPDATE seller_requests SET status = 'approved' WHERE request_id = $requestId");
             $toast = ['type' => 'success', 'text' => 'Seller request approved successfully!'];
+            $contact = trim((string) ($row['contact'] ?? ''));
+            $shopName = trim((string) ($row['shop_name'] ?? ''));
+            $sellerType = trim((string) ($row['seller_type'] ?? ''));
+            $description = trim((string) ($row['description'] ?? ''));
+            $address = trim((string) ($row['address'] ?? ''));
+
+            $conn->begin_transaction();
+            try {
+                $roleStmt = $conn->prepare("UPDATE users SET role = 'both' WHERE user_id = ?");
+                $roleStmt->bind_param('i', $uid);
+                $roleStmt->execute();
+                $roleStmt->close();
+
+                $profileStmt = $conn->prepare("
+                    INSERT INTO seller_profiles (user_id, shop_name, contact, seller_type, description, address)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    ON DUPLICATE KEY UPDATE
+                        shop_name = VALUES(shop_name),
+                        contact = VALUES(contact),
+                        seller_type = VALUES(seller_type),
+                        description = VALUES(description),
+                        address = VALUES(address)
+                ");
+                $profileStmt->bind_param('isssss', $uid, $shopName, $contact, $sellerType, $description, $address);
+                $profileStmt->execute();
+                $profileStmt->close();
+
+                $requestStmt = $conn->prepare("UPDATE seller_requests SET status = 'approved' WHERE request_id = ?");
+                $requestStmt->bind_param('i', $requestId);
+                $requestStmt->execute();
+                $requestStmt->close();
+
+                $conn->commit();
+                $message = '<div class="alert alert-success">Seller request approved and shop profile created successfully!</div>';
+            } catch (Throwable $e) {
+                $conn->rollback();
+                $message = '<div class="alert alert-danger">Unable to approve seller request.</div>';
+            }
         } else {
             $toast = ['type' => 'danger', 'text' => 'Request not found.'];
         }

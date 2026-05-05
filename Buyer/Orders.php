@@ -9,11 +9,16 @@ bh_require_login('../Login.php');
 
 $buyerId = bh_current_user_id();
 $cartCount = bh_cart_count($conn, $buyerId);
+bh_ensure_checkout_columns($conn);
 
 $orders = [];
 $stmt = $conn->prepare("
   SELECT
     o.order_id,
+    o.customer_name,
+    o.customer_phone,
+    o.customer_address,
+    o.payment_method,
     o.total_amount,
     o.status,
     o.order_date,
@@ -65,11 +70,11 @@ while ($row = $result->fetch_assoc()) {
     'date' => (string) $row['order_date'],
     'items' => $itemCount,
     'total' => (float) $row['total_amount'],
-    'payment' => 'COD',
+    'payment' => strtoupper((string) ($row['payment_method'] ?: 'cod')),
     'status' => $status,
-    'customer_name' => trim((string) $row['FirstName'] . ' ' . (string) $row['LastName']),
-    'customer_phone' => 'Not stored',
-    'customer_address' => (string) $row['email'],
+    'customer_name' => trim((string) ($row['customer_name'] ?: trim((string) $row['FirstName'] . ' ' . (string) $row['LastName']))),
+    'customer_phone' => (string) ($row['customer_phone'] ?: 'Not provided'),
+    'customer_address' => (string) ($row['customer_address'] ?: 'Not provided'),
     'products' => $products,
   ];
 }
@@ -225,7 +230,7 @@ $stmt->close();
           <h6 class="mb-3">Customer Information</h6>
           <p class="mb-2"><strong>Name:</strong> <span id="modalCustomerName"></span></p>
           <p class="mb-2"><strong>Phone:</strong> <span id="modalCustomerPhone"></span></p>
-          <p class="mb-2"><strong>Email:</strong> <span id="modalCustomerAddress"></span></p>
+          <p class="mb-2"><strong>Delivery Address:</strong> <span id="modalCustomerAddress"></span></p>
           <hr>
           <h6 class="mb-3">Order Items</h6>
           <div class="table-responsive">

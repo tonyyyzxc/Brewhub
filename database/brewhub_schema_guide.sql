@@ -177,13 +177,15 @@ CREATE TABLE cart_items (
 
 -- ---------------------------------------------------------
 -- orders
--- Stores order headers.
--- Note: current system does NOT yet store checkout phone, address,
--- or payment method in this table.
+-- Stores order headers and checkout information.
 -- ---------------------------------------------------------
 CREATE TABLE orders (
   order_id INT(11) NOT NULL AUTO_INCREMENT,
   buyer_id INT(11) NOT NULL,
+  customer_name VARCHAR(150) DEFAULT NULL,
+  customer_phone VARCHAR(30) DEFAULT NULL,
+  customer_address TEXT DEFAULT NULL,
+  payment_method ENUM('cod','online') DEFAULT NULL,
   total_amount DECIMAL(10,2) DEFAULT NULL,
   status ENUM('pending','completed','cancelled') DEFAULT 'pending',
   order_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -447,6 +449,10 @@ CREATE TABLE cart_items (
 CREATE TABLE orders (
   order_id INT(11) NOT NULL AUTO_INCREMENT,
   buyer_id INT(11) NOT NULL,
+  customer_name VARCHAR(150) DEFAULT NULL,
+  customer_phone VARCHAR(30) DEFAULT NULL,
+  customer_address TEXT DEFAULT NULL,
+  payment_method ENUM('cod','online') DEFAULT NULL,
   total_amount DECIMAL(10,2) DEFAULT NULL,
   status ENUM('pending','completed','cancelled') DEFAULT 'pending',
   order_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

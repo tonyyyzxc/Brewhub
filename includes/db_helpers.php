@@ -19,6 +19,22 @@ function bh_require_role(array $roles, string $redirect = '../Login.php'): void
 	}
 	$normalizedRoles = array_map(static fn($r): string => strtolower((string) $r), $roles);
 	if (!in_array($role, $normalizedRoles, true)) {
+	global $conn;
+
+	$userId = bh_current_user_id();
+	if ($userId > 0 && $conn instanceof mysqli) {
+		$stmt = $conn->prepare("SELECT role FROM users WHERE user_id = ?");
+		$stmt->bind_param('i', $userId);
+		$stmt->execute();
+		$freshRole = $stmt->get_result()->fetch_assoc()['role'] ?? null;
+		$stmt->close();
+		if ($freshRole !== null && $freshRole !== '') {
+			$_SESSION['role'] = (string) $freshRole;
+		}
+	}
+
+	$role = (string) ($_SESSION['role'] ?? '');
+	if (!in_array($role, $roles, true)) {
 		header('Location: ' . $redirect);
 		exit;
 	}
@@ -200,7 +216,79 @@ function bh_fetch_cart_items(mysqli $conn, int $buyerId): array
 	return $items;
 }
 
-function bh_create_order_from_cart(mysqli $conn, int $buyerId, float $shippingFee): int
+function bh_ensure_checkout_columns(mysqli $conn): void
+{
+	$columns = [
+		'customer_name' => "ADD COLUMN customer_name VARCHAR(150) NULL AFTER buyer_id",
+		'customer_phone' => "ADD COLUMN customer_phone VARCHAR(30) NULL AFTER customer_name",
+		'customer_address' => "ADD COLUMN customer_address TEXT NULL AFTER customer_phone",
+		'payment_method' => "ADD COLUMN payment_method ENUM('cod','online') NULL AFTER customer_address",
+	];
+
+	foreach ($columns as $column => $alterSql) {
+		$stmt = $conn->prepare("
+			SELECT COUNT(*) AS cnt
+			FROM information_schema.COLUMNS
+			WHERE TABLE_SCHEMA = DATABASE()
+				AND TABLE_NAME = 'orders'
+				AND COLUMN_NAME = ?
+		");
+		$stmt->bind_param('s', $column);
+		$stmt->execute();
+		$exists = (int) ($stmt->get_result()->fetch_assoc()['cnt'] ?? 0) > 0;
+		$stmt->close();
+
+		if (!$exists) {
+			$conn->query("ALTER TABLE orders $alterSql");
+		}
+	}
+}
+
+function bh_fetch_checkout_profile(mysqli $conn, int $buyerId): array
+{
+	bh_ensure_checkout_columns($conn);
+
+	$stmt = $conn->prepare("
+		SELECT
+			TRIM(CONCAT(COALESCE(u.FirstName, ''), ' ', COALESCE(u.LastName, ''))) AS account_name,
+			o.customer_name,
+			o.customer_phone,
+			o.customer_address,
+			o.payment_method
+		FROM users u
+		LEFT JOIN orders o
+			ON o.order_id = (
+				SELECT o2.order_id
+				FROM orders o2
+				WHERE o2.buyer_id = u.user_id
+					AND (
+						COALESCE(o2.customer_phone, '') <> ''
+						OR COALESCE(o2.customer_address, '') <> ''
+						OR COALESCE(o2.customer_name, '') <> ''
+					)
+				ORDER BY o2.order_date DESC, o2.order_id DESC
+				LIMIT 1
+			)
+		WHERE u.user_id = ?
+	");
+	$stmt->bind_param('i', $buyerId);
+	$stmt->execute();
+	$row = $stmt->get_result()->fetch_assoc() ?: [];
+	$stmt->close();
+
+	$accountName = trim((string) ($row['account_name'] ?? ''));
+	$customerName = trim((string) ($row['customer_name'] ?? ''));
+	return [
+		'full_name' => $customerName !== '' ? $customerName : $accountName,
+		'phone' => (string) ($row['customer_phone'] ?? ''),
+		'address' => (string) ($row['customer_address'] ?? ''),
+		'payment_method' => in_array((string) ($row['payment_method'] ?? ''), ['cod', 'online'], true)
+			? (string) $row['payment_method']
+			: 'cod',
+	];
+}
+
+function bh_create_order_from_cart(mysqli $conn, int $buyerId, float $shippingFee, array $checkoutDetails = []): int
 {
 	$cartItems = bh_fetch_cart_items($conn, $buyerId);
 	if ($buyerId <= 0 || empty($cartItems)) {
@@ -209,11 +297,22 @@ function bh_create_order_from_cart(mysqli $conn, int $buyerId, float $shippingFe
 
 	$subtotal = array_sum(array_map(static fn(array $item): float => (float) $item['total'], $cartItems));
 	$total = $subtotal + $shippingFee;
+	$customerName = trim((string) ($checkoutDetails['full_name'] ?? ''));
+	$customerPhone = trim((string) ($checkoutDetails['phone'] ?? ''));
+	$customerAddress = trim((string) ($checkoutDetails['address'] ?? ''));
+	$paymentMethod = strtolower(trim((string) ($checkoutDetails['payment_method'] ?? 'cod')));
+	if (!in_array($paymentMethod, ['cod', 'online'], true)) {
+		$paymentMethod = 'cod';
+	}
 
+	bh_ensure_checkout_columns($conn);
 	$conn->begin_transaction();
 	try {
-		$stmt = $conn->prepare("INSERT INTO orders (buyer_id, total_amount, status) VALUES (?, ?, 'pending')");
-		$stmt->bind_param('id', $buyerId, $total);
+		$stmt = $conn->prepare("
+			INSERT INTO orders (buyer_id, customer_name, customer_phone, customer_address, payment_method, total_amount, status)
+			VALUES (?, ?, ?, ?, ?, ?, 'pending')
+		");
+		$stmt->bind_param('issssd', $buyerId, $customerName, $customerPhone, $customerAddress, $paymentMethod, $total);
 		$stmt->execute();
 		$orderId = (int) $conn->insert_id;
 		$stmt->close();
@@ -249,14 +348,26 @@ function bh_fetch_seller_profile(mysqli $conn, int $sellerId): array
 {
 	$stmt = $conn->prepare("
 		SELECT
-			sp.shop_name,
-			sp.contact,
-			sp.seller_type,
-			sp.description,
-			sp.address,
-			u.username
+			COALESCE(NULLIF(sp.shop_name, ''), sr.shop_name) AS shop_name,
+			COALESCE(NULLIF(sp.contact, ''), sr.contact) AS contact,
+			COALESCE(NULLIF(sp.seller_type, ''), sr.seller_type) AS seller_type,
+			COALESCE(NULLIF(sp.description, ''), sr.description) AS description,
+			COALESCE(NULLIF(sp.address, ''), sr.address) AS address,
+			u.username,
+			COALESCE(NULLIF(u.FirstName, ''), sr.first_name) AS FirstName,
+			COALESCE(NULLIF(u.LastName, ''), sr.last_name) AS LastName,
+			COALESCE(NULLIF(u.email, ''), sr.email) AS email
 		FROM users u
 		LEFT JOIN seller_profiles sp ON sp.user_id = u.user_id
+		LEFT JOIN seller_requests sr
+			ON sr.user_id = u.user_id
+			AND sr.status = 'approved'
+			AND sr.request_id = (
+				SELECT MAX(sr2.request_id)
+				FROM seller_requests sr2
+				WHERE sr2.user_id = u.user_id
+					AND sr2.status = 'approved'
+			)
 		WHERE u.user_id = ?
 	");
 	$stmt->bind_param('i', $sellerId);
@@ -266,6 +377,10 @@ function bh_fetch_seller_profile(mysqli $conn, int $sellerId): array
 
 	$username = trim((string) ($row['username'] ?? 'Seller'));
 	return [
+		'first_name' => (string) ($row['FirstName'] ?? ''),
+		'last_name' => (string) ($row['LastName'] ?? ''),
+		'email' => (string) ($row['email'] ?? ''),
+		'username' => (string) ($row['username'] ?? ''),
 		'shop_name' => trim((string) ($row['shop_name'] ?? '')) ?: $username . "'s Shop",
 		'contact' => (string) ($row['contact'] ?? ''),
 		'seller_type' => (string) ($row['seller_type'] ?? ''),
@@ -292,6 +407,23 @@ function bh_save_seller_profile(mysqli $conn, int $sellerId, array $profile): bo
 	$description = trim((string) ($profile['description'] ?? ''));
 	$address = trim((string) ($profile['address'] ?? ''));
 	$stmt->bind_param('isssss', $sellerId, $shopName, $contact, $sellerType, $description, $address);
+	$ok = $stmt->execute();
+	$stmt->close();
+	return $ok;
+}
+
+function bh_save_seller_account(mysqli $conn, int $sellerId, array $account): bool
+{
+	$stmt = $conn->prepare("
+		UPDATE users
+		SET FirstName = ?, LastName = ?, username = ?, email = ?
+		WHERE user_id = ?
+	");
+	$firstName = trim((string) ($account['first_name'] ?? ''));
+	$lastName = trim((string) ($account['last_name'] ?? ''));
+	$username = trim((string) ($account['username'] ?? ''));
+	$email = trim((string) ($account['email'] ?? ''));
+	$stmt->bind_param('ssssi', $firstName, $lastName, $username, $email, $sellerId);
 	$ok = $stmt->execute();
 	$stmt->close();
 	return $ok;

@@ -35,7 +35,18 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $stmt->close();
     $flash = 'Cart cleared.';
   } elseif ($action === 'checkout' || isset($_POST['clear_cart_after_checkout'])) {
-    $orderId = bh_create_order_from_cart($conn, $buyerId, $shippingFee);
+    $checkoutDetails = [
+      'full_name' => trim((string) ($_POST['full_name'] ?? '')),
+      'phone' => trim((string) ($_POST['phone'] ?? '')),
+      'address' => trim((string) ($_POST['address'] ?? '')),
+      'payment_method' => trim((string) ($_POST['payment_method'] ?? 'cod')),
+    ];
+    if ($checkoutDetails['full_name'] === '' || $checkoutDetails['phone'] === '' || $checkoutDetails['address'] === '') {
+      $orderId = 0;
+      $flash = 'Please complete your checkout information.';
+    } else {
+      $orderId = bh_create_order_from_cart($conn, $buyerId, $shippingFee, $checkoutDetails);
+    }
     if (isset($_POST['clear_cart_after_checkout'])) {
       echo $orderId > 0 ? 'ok' : 'failed';
       exit;
@@ -48,6 +59,7 @@ $cartItems = bh_fetch_cart_items($conn, $buyerId);
 $subtotal = array_sum(array_map(static fn(array $item): float => (float) $item['total'], $cartItems));
 $cartCount = bh_cart_count($conn, $buyerId);
 $total = $subtotal + $shippingFee;
+$checkoutProfile = bh_fetch_checkout_profile($conn, $buyerId);
 ?>
 
 <!DOCTYPE html>
@@ -199,16 +211,16 @@ $total = $subtotal + $shippingFee;
             <div class="checkout-section mb-4">
               <h6 class="checkout-section-title"><i class="bi bi-person me-2"></i>Your Information</h6>
               <div class="row g-3">
-                <div class="col-12"><label for="checkoutName" class="form-label checkout-label">Full Name</label><input type="text" class="form-control checkout-input" id="checkoutName" name="full_name" placeholder="Juan Dela Cruz" required></div>
-                <div class="col-12"><label for="checkoutPhone" class="form-label checkout-label">Phone Number</label><input type="tel" class="form-control checkout-input" id="checkoutPhone" name="phone" placeholder="09XX XXX XXXX" required></div>
-                <div class="col-12"><label for="checkoutAddress" class="form-label checkout-label">Delivery Address</label><textarea class="form-control checkout-input" id="checkoutAddress" name="address" rows="2" placeholder="Complete address with street, city, and province" required></textarea></div>
+                <div class="col-12"><label for="checkoutName" class="form-label checkout-label">Full Name</label><input type="text" class="form-control checkout-input" id="checkoutName" name="full_name" value="<?php echo htmlspecialchars($checkoutProfile['full_name'], ENT_QUOTES, 'UTF-8'); ?>" placeholder="Juan Dela Cruz" required></div>
+                <div class="col-12"><label for="checkoutPhone" class="form-label checkout-label">Phone Number</label><input type="tel" class="form-control checkout-input" id="checkoutPhone" name="phone" value="<?php echo htmlspecialchars($checkoutProfile['phone'], ENT_QUOTES, 'UTF-8'); ?>" placeholder="09XX XXX XXXX" required></div>
+                <div class="col-12"><label for="checkoutAddress" class="form-label checkout-label">Delivery Address</label><textarea class="form-control checkout-input" id="checkoutAddress" name="address" rows="2" placeholder="Complete address with street, city, and province" required><?php echo htmlspecialchars($checkoutProfile['address'], ENT_QUOTES, 'UTF-8'); ?></textarea></div>
               </div>
             </div>
             <div class="checkout-section">
               <h6 class="checkout-section-title"><i class="bi bi-wallet2 me-2"></i>Payment Method</h6>
               <div class="payment-methods">
-                <div class="form-check payment-option"><input class="form-check-input" type="radio" name="payment_method" id="paymentCOD" value="cod" checked><label class="form-check-label" for="paymentCOD"><i class="bi bi-cash-coin me-2"></i><span><strong>Cash on Delivery</strong><small class="d-block text-muted">Pay when you receive</small></span></label></div>
-                <div class="form-check payment-option"><input class="form-check-input" type="radio" name="payment_method" id="paymentOnline" value="online"><label class="form-check-label" for="paymentOnline"><i class="bi bi-credit-card me-2"></i><span><strong>Online Payment</strong><small class="d-block text-muted">GCash, Card, or Bank Transfer</small></span></label></div>
+                <div class="form-check payment-option"><input class="form-check-input" type="radio" name="payment_method" id="paymentCOD" value="cod" <?php echo $checkoutProfile['payment_method'] === 'cod' ? 'checked' : ''; ?>><label class="form-check-label" for="paymentCOD"><i class="bi bi-cash-coin me-2"></i><span><strong>Cash on Delivery</strong><small class="d-block text-muted">Pay when you receive</small></span></label></div>
+                <div class="form-check payment-option"><input class="form-check-input" type="radio" name="payment_method" id="paymentOnline" value="online" <?php echo $checkoutProfile['payment_method'] === 'online' ? 'checked' : ''; ?>><label class="form-check-label" for="paymentOnline"><i class="bi bi-credit-card me-2"></i><span><strong>Online Payment</strong><small class="d-block text-muted">GCash, Card, or Bank Transfer</small></span></label></div>
               </div>
             </div>
           </div>

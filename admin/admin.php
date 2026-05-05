@@ -10,6 +10,17 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['role'] !== 'admin') {
     exit();
 }
 
+function admin_role_label(?string $role): string
+{
+    return match ($role) {
+        'both' => 'Seller/Buyer',
+        'seller' => 'Seller',
+        'buyer' => 'Buyer',
+        'admin' => 'Admin',
+        default => ucfirst((string) $role),
+    };
+}
+
 // Total Users (excluding admin)
 $totalUsers = 0;
 $result = $conn->query("SELECT COUNT(*) AS cnt FROM users WHERE role != 'admin'");
@@ -207,7 +218,7 @@ $finalTotals = [
 												<tr>
 													<td class="fw-semibold"><?php echo htmlspecialchars($u['username'], ENT_QUOTES, 'UTF-8'); ?></td>
 													<td class="text-muted"><?php echo htmlspecialchars($u['email'], ENT_QUOTES, 'UTF-8'); ?></td>
-													<td><span class="admin-badge"><?php echo htmlspecialchars($u['role'], ENT_QUOTES, 'UTF-8'); ?></span></td>
+													<td><span class="admin-badge"><?php echo htmlspecialchars(admin_role_label($u['role'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></span></td>
 													<td><span class="admin-status"><?php echo htmlspecialchars($u['status'], ENT_QUOTES, 'UTF-8'); ?></span></td>
 													<td class="text-end">
 														<a class="btn admin-btn admin-btn-ghost btn-sm" href="UserManagement.php"><i class="bi bi-eye me-1"></i>View</a>

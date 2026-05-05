@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/includes/app_keys.php';
+
 $servername = "localhost";
 $username = "root";
 $password = "";

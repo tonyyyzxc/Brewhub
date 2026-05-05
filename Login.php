@@ -1,3 +1,12 @@
+<?php
+require_once __DIR__ . '/includes/app_keys.php';
+
+$recaptchaSiteKey = defined('RECAPTCHA_SITE_KEY') ? trim((string) RECAPTCHA_SITE_KEY) : '';
+$googleConfigured = defined('GOOGLE_CLIENT_ID') && defined('GOOGLE_CLIENT_SECRET')
+	&& trim((string) GOOGLE_CLIENT_ID) !== ''
+	&& trim((string) GOOGLE_CLIENT_SECRET) !== '';
+$loginError = trim((string) ($_GET['error'] ?? ''));
+?>
 <!doctype html>
 <html lang="en">
 <head>
@@ -10,6 +19,9 @@
 	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
 	<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 	<link href="Style.css" rel="stylesheet">
+	<?php if ($recaptchaSiteKey !== ''): ?>
+	<script src="https://www.google.com/recaptcha/api.js" async defer></script>
+	<?php endif; ?>
 </head>
 <body class="auth-page"> 
 	<main class="auth-card container-fluid p-0">
@@ -43,13 +55,19 @@
 							<a href="ForgotPassword.php" class="forgot-link link-underline link-underline-opacity-0 link-underline-opacity-100-hover">Forgot your password?</a>
 						</div>
 
+						<?php if ($recaptchaSiteKey !== ''): ?>
+						<div class="recaptcha-wrap mb-3">
+							<div class="g-recaptcha" data-sitekey="<?php echo htmlspecialchars($recaptchaSiteKey, ENT_QUOTES, 'UTF-8'); ?>"></div>
+						</div>
+						<?php endif; ?>
+
 						<button type="submit" class="btn btn-login w-100">Log In</button>
 					</form>
 
 					<div class="or-divider" aria-hidden="true"><span>OR</span></div>
 
 					<div class="social-row">			
-						<a class="social-btn" href="#"><i class="bi bi-google"></i> Sign in with Google</a>
+						<a class="social-btn<?php echo $googleConfigured ? '' : ' disabled'; ?>" href="<?php echo $googleConfigured ? 'google-auth.php' : '#'; ?>" <?php echo $googleConfigured ? '' : 'aria-disabled="true"'; ?>><i class="bi bi-google"></i> Sign in with Google</a>
 					</div>
 
 					<p class="signup-note">Don't have an account? <a href="Signup.php">Sign Up</a></p>
@@ -87,6 +105,9 @@
 				if(data.status === 'success'){
 					window.location.href = data.redirect;
 				} else {
+					if (window.grecaptcha) {
+						grecaptcha.reset();
+					}
 					const toastEl = document.getElementById('errorToast');
 					const toastMessage = document.getElementById('toastMessage');
 					toastMessage.textContent = data.message;
@@ -95,6 +116,9 @@
 				}
 			})
 			.catch(error => {
+				if (window.grecaptcha) {
+					grecaptcha.reset();
+				}
 				const toastEl = document.getElementById('errorToast');
 				const toastMessage = document.getElementById('toastMessage');
 				toastMessage.textContent = 'Wrong credentials. Please try again.';
@@ -102,6 +126,16 @@
 				toast.show();
 			});
 		});
+
+		<?php if ($loginError !== ''): ?>
+		document.addEventListener('DOMContentLoaded', function(){
+			const toastEl = document.getElementById('errorToast');
+			const toastMessage = document.getElementById('toastMessage');
+			toastMessage.textContent = <?php echo json_encode($loginError); ?>;
+			const toast = new bootstrap.Toast(toastEl, { delay: 5000 });
+			toast.show();
+		});
+		<?php endif; ?>
 	</script>
 
 </body>

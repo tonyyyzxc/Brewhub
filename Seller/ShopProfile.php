@@ -29,6 +29,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['logout'])) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['logout'])) {
+	$postedAccount = [
+		'first_name' => trim((string) ($_POST['first_name'] ?? '')),
+		'last_name' => trim((string) ($_POST['last_name'] ?? '')),
+		'username' => trim((string) ($_POST['username'] ?? '')),
+		'email' => trim((string) ($_POST['email'] ?? '')),
+	];
 	$postedProfile = [
 		'shop_name' => trim((string) ($_POST['shop_name'] ?? '')),
 		'contact' => trim((string) ($_POST['shop_contact'] ?? '')),
@@ -37,11 +43,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['logout'])) {
 		'address' => trim((string) ($_POST['shop_address'] ?? '')),
 	];
 
-	if ($postedProfile['shop_name'] === '' || $postedProfile['contact'] === '' || $postedProfile['description'] === '') {
-		$message = ['type' => 'danger', 'text' => 'Shop name, contact, and description are required.'];
-		$profile = array_merge($profile, $postedProfile);
+	if ($postedAccount['first_name'] === '' || $postedAccount['last_name'] === '' || $postedAccount['username'] === '' || $postedAccount['email'] === '') {
+		$message = ['type' => 'danger', 'text' => 'Name, username, and email are required.'];
+		$profile = array_merge($profile, $postedAccount, $postedProfile);
+	} elseif (!filter_var($postedAccount['email'], FILTER_VALIDATE_EMAIL)) {
+		$message = ['type' => 'danger', 'text' => 'Please enter a valid email address.'];
+		$profile = array_merge($profile, $postedAccount, $postedProfile);
+	} elseif ($postedProfile['shop_name'] === '' || $postedProfile['contact'] === '' || $postedProfile['seller_type'] === '' || $postedProfile['description'] === '' || $postedProfile['address'] === '') {
+		$message = ['type' => 'danger', 'text' => 'All shop profile fields are required.'];
+		$profile = array_merge($profile, $postedAccount, $postedProfile);
 	} else {
-		$ok = bh_save_seller_profile($conn, $sellerId, $postedProfile);
+		$conn->begin_transaction();
+		$ok = bh_save_seller_account($conn, $sellerId, $postedAccount) && bh_save_seller_profile($conn, $sellerId, $postedProfile);
+		if ($ok) {
+			$conn->commit();
+			$_SESSION['FirstName'] = $postedAccount['first_name'];
+			$_SESSION['LastName'] = $postedAccount['last_name'];
+			$_SESSION['username'] = $postedAccount['username'];
+			$_SESSION['userName'] = $postedAccount['username'];
+			$_SESSION['email'] = $postedAccount['email'];
+		} else {
+			$conn->rollback();
+		}
 		$profile = bh_fetch_seller_profile($conn, $sellerId);
 		$message = $ok
 			? ['type' => 'success', 'text' => 'Shop profile saved successfully.']
@@ -97,6 +120,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['logout'])) {
 				<?php endif; ?>
 				<form action="ShopProfile.php" method="post" class="row g-3">
 					<input type="hidden" name="logout_token" value="<?php echo htmlspecialchars($logoutToken, ENT_QUOTES, 'UTF-8'); ?>">
+					<div class="col-12">
+						<h3 class="seller-section-heading mb-0"><i class="bi bi-person-badge me-2"></i>Basic Information</h3>
+					</div>
+					<div class="col-12 col-md-6">
+						<label class="form-label seller-form-label" for="firstName">First Name</label>
+						<input id="firstName" name="first_name" type="text" class="form-control seller-form-control" value="<?php echo htmlspecialchars((string) $profile['first_name'], ENT_QUOTES, 'UTF-8'); ?>" required>
+					</div>
+					<div class="col-12 col-md-6">
+						<label class="form-label seller-form-label" for="lastName">Last Name</label>
+						<input id="lastName" name="last_name" type="text" class="form-control seller-form-control" value="<?php echo htmlspecialchars((string) $profile['last_name'], ENT_QUOTES, 'UTF-8'); ?>" required>
+					</div>
+					<div class="col-12 col-md-6">
+						<label class="form-label seller-form-label" for="username">Username</label>
+						<input id="username" name="username" type="text" class="form-control seller-form-control" value="<?php echo htmlspecialchars((string) $profile['username'], ENT_QUOTES, 'UTF-8'); ?>" required>
+					</div>
+					<div class="col-12 col-md-6">
+						<label class="form-label seller-form-label" for="email">Email</label>
+						<input id="email" name="email" type="email" class="form-control seller-form-control" value="<?php echo htmlspecialchars((string) $profile['email'], ENT_QUOTES, 'UTF-8'); ?>" required>
+					</div>
+					<div class="col-12 pt-2">
+						<h3 class="seller-section-heading mb-0"><i class="bi bi-shop me-2"></i>Shop Information</h3>
+					</div>
 					<div class="col-12 col-md-6">
 						<label class="form-label seller-form-label" for="shopName">Shop Name</label>
 						<input id="shopName" name="shop_name" type="text" class="form-control seller-form-control" value="<?php echo htmlspecialchars((string) $profile['shop_name'], ENT_QUOTES, 'UTF-8'); ?>" required>
@@ -107,11 +152,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['logout'])) {
 					</div>
 					<div class="col-12 col-md-6">
 						<label class="form-label seller-form-label" for="sellerType">Seller Type</label>
-						<input id="sellerType" name="seller_type" type="text" class="form-control seller-form-control" value="<?php echo htmlspecialchars((string) $profile['seller_type'], ENT_QUOTES, 'UTF-8'); ?>">
+						<select id="sellerType" name="seller_type" class="form-select seller-form-control" required>
+							<?php $sellerType = (string) $profile['seller_type']; ?>
+							<option value="" <?php echo $sellerType === '' ? 'selected' : ''; ?> disabled>Select seller type</option>
+							<option value="coffee-shop" <?php echo $sellerType === 'coffee-shop' ? 'selected' : ''; ?>>Coffee Shop</option>
+							<option value="home-based" <?php echo $sellerType === 'home-based' ? 'selected' : ''; ?>>Home-based seller</option>
+							<option value="supplier" <?php echo $sellerType === 'supplier' ? 'selected' : ''; ?>>Supplier</option>
+						</select>
 					</div>
 					<div class="col-12 col-md-6">
 						<label class="form-label seller-form-label" for="shopAddress">Address</label>
-						<input id="shopAddress" name="shop_address" type="text" class="form-control seller-form-control" value="<?php echo htmlspecialchars((string) $profile['address'], ENT_QUOTES, 'UTF-8'); ?>">
+						<input id="shopAddress" name="shop_address" type="text" class="form-control seller-form-control" value="<?php echo htmlspecialchars((string) $profile['address'], ENT_QUOTES, 'UTF-8'); ?>" required>
 					</div>
 					<div class="col-12">
 						<label class="form-label seller-form-label" for="shopDescription">Description</label>

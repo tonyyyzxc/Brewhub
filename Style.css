@@ -180,6 +180,17 @@ body.auth-page .form-control[type="password"] {
 	background: #aa845d;
 }
 
+.social-btn.disabled {
+	opacity: 0.55;
+	pointer-events: none;
+}
+
+.recaptcha-wrap {
+	display: flex;
+	justify-content: center;
+	overflow: hidden;
+}
+
 .signup-note {
 	margin-top: 0.85rem;
 	font-size: 0.74rem;
