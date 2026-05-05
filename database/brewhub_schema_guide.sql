@@ -65,15 +65,22 @@ CREATE TABLE users (
 -- ---------------------------------------------------------
 -- products
 -- Stores product master data.
+-- user_id links each product to the seller who created it.
+-- ON DELETE CASCADE ensures products are removed when seller is deleted.
 -- image_path was added so uploaded product images can be saved.
 -- ---------------------------------------------------------
 CREATE TABLE products (
   product_id INT(11) NOT NULL AUTO_INCREMENT,
+  user_id INT(11) NULL,
   product_name VARCHAR(100) DEFAULT NULL,
   category VARCHAR(100) DEFAULT NULL,
   description TEXT DEFAULT NULL,
   image_path VARCHAR(255) DEFAULT NULL,
-  PRIMARY KEY (product_id)
+  PRIMARY KEY (product_id),
+  KEY user_id (user_id),
+  CONSTRAINT products_user_fk
+    FOREIGN KEY (user_id) REFERENCES users (user_id)
+    ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 
@@ -265,9 +272,9 @@ ON DUPLICATE KEY UPDATE
 
 -- =========================================================
 -- SECTION C: VERSION 2 OPTIONAL UPGRADE
--- This is NOT required by the current codebase.
--- Use this only if the team wants more complete checkout data
--- and better shop-browsing support.
+-- This is NOT required if you are starting fresh.
+-- Use this only if you already have an existing database
+-- and want to apply the latest changes without wiping data.
 -- =========================================================
 
 -- ---------------------------------------------------------
@@ -283,6 +290,27 @@ ALTER TABLE orders
   ADD COLUMN customer_phone VARCHAR(30) NULL AFTER customer_name,
   ADD COLUMN customer_address TEXT NULL AFTER customer_phone,
   ADD COLUMN payment_method ENUM('cod','online') NULL AFTER customer_address;
+
+-- ---------------------------------------------------------
+-- C2. Add user_id to products so each product is owned by a seller.
+-- ON DELETE CASCADE means deleting a seller also deletes their products.
+-- Run this if your products table does not yet have a user_id column.
+-- ---------------------------------------------------------
+ALTER TABLE products
+  ADD COLUMN user_id INT(11) NULL AFTER product_id,
+  ADD KEY user_id (user_id),
+  ADD CONSTRAINT products_user_fk
+    FOREIGN KEY (user_id) REFERENCES users (user_id)
+    ON DELETE CASCADE;
+
+-- ---------------------------------------------------------
+-- C3. Backfill user_id in products from listings
+-- Run this after C2 to fill in existing products with their seller.
+-- ---------------------------------------------------------
+UPDATE products p
+JOIN listings l ON l.product_id = p.product_id
+SET p.user_id = l.user_id
+WHERE p.user_id IS NULL;
 
 
 -- ---------------------------------------------------------
@@ -365,11 +393,16 @@ CREATE TABLE users (
 
 CREATE TABLE products (
   product_id INT(11) NOT NULL AUTO_INCREMENT,
+  user_id INT(11) NULL,
   product_name VARCHAR(100) DEFAULT NULL,
   category VARCHAR(100) DEFAULT NULL,
   description TEXT DEFAULT NULL,
   image_path VARCHAR(255) DEFAULT NULL,
-  PRIMARY KEY (product_id)
+  PRIMARY KEY (product_id),
+  KEY user_id (user_id),
+  CONSTRAINT products_user_fk
+    FOREIGN KEY (user_id) REFERENCES users (user_id)
+    ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE listings (
