@@ -1331,6 +1331,24 @@ body.admin-sidebar-collapsed .admin-sidebar {
 	color: #964B00;
 }
 
+.bh-shop-link {
+	color: inherit;
+	text-decoration: none;
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35rem;
+}
+
+.bh-shop-link:hover {
+	text-decoration: underline;
+}
+
+.bh-shop-link:focus-visible {
+	outline: 2px solid rgba(150, 75, 0, 0.35);
+	outline-offset: 2px;
+	border-radius: 8px;
+}
+
 .bh-product-badge {
 	display: inline-flex;
 	align-items: center;
