@@ -128,6 +128,7 @@ $products = bh_fetch_listings($conn, $categoryGroup);
                 tabindex="0"
                 data-product-id="<?php echo $listingId; ?>"
                 data-listing-id="<?php echo $listingId; ?>"
+                data-seller-id="<?php echo $shopSellerId; ?>"
                 data-name="<?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?>"
                 data-category="<?php echo htmlspecialchars($category, ENT_QUOTES, 'UTF-8'); ?>"
                 data-price="PHP <?php echo number_format($price, 2); ?>"
@@ -184,7 +185,12 @@ $products = bh_fetch_listings($conn, $categoryGroup);
               <h3 class="bh-product-title" id="bhPreviewTitle"></h3>
               <div class="bh-product-price" id="bhPreviewPrice"></div>
             </div>
-            <div class="bh-product-seller" id="bhPreviewShop" hidden><i class="bi bi-shop"></i> <span id="bhPreviewShopName"></span></div>
+            <div class="bh-product-seller" id="bhPreviewShop" hidden>
+              <a class="bh-shop-link" id="bhPreviewShopLink" href="#">
+                <i class="bi bi-shop"></i>
+                <span id="bhPreviewShopName"></span>
+              </a>
+            </div>
             <div class="bh-product-meta"><span class="bh-product-badge" id="bhPreviewCategory"></span></div>
             <form class="bh-preview-form" onsubmit="return false;">
               <label class="bh-preview-label" for="bhPreviewDescription">Description</label>
@@ -233,6 +239,6 @@ $products = bh_fetch_listings($conn, $categoryGroup);
   </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
-<script src="product-preview.js"></script>
+<script src="product-preview.js?v=20260506"></script>
 </body>
 </html>

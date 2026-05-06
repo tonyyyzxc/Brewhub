@@ -7,6 +7,7 @@
   const price = document.getElementById('bhPreviewPrice');
   const category = document.getElementById('bhPreviewCategory');
   const shopWrap = document.getElementById('bhPreviewShop');
+  const shopLink = document.getElementById('bhPreviewShopLink');
   const shopName = document.getElementById('bhPreviewShopName');
   const description = document.getElementById('bhPreviewDescription');
   const addProductId = document.getElementById('bhPreviewAddProductId');
@@ -28,6 +29,19 @@
 
   let lastActiveCard = null;
 
+  if (shopLink) {
+    shopLink.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const href = (shopLink.dataset.href || '').trim();
+      if (href === '') {
+        event.preventDefault();
+        return;
+      }
+      event.preventDefault();
+      window.location.assign(href);
+    });
+  }
+
   const openPreview = (card) => {
     const data = card.dataset;
     title.textContent = data.name || '';
@@ -36,8 +50,21 @@
 
     if (shopWrap && shopName) {
       const shopText = (data.shop || '').trim();
-      shopName.textContent = shopText;
+      const sellerId = (data.sellerId || '').toString().trim();
+
       shopWrap.hidden = shopText === '';
+
+      shopName.textContent = shopText;
+      if (shopLink) {
+        const href = sellerId !== '' && sellerId !== '0'
+          ? `ShopPage.php?seller_id=${encodeURIComponent(sellerId)}`
+          : '';
+
+        shopLink.dataset.href = href;
+        shopLink.href = href || '#';
+        shopLink.setAttribute('aria-disabled', href ? 'false' : 'true');
+        shopLink.classList.toggle('is-disabled', !href);
+      }
     }
 
     description.value = data.description || '';

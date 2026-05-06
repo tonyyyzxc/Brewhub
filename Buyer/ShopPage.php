@@ -136,6 +136,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                                 tabindex="0"
                                 data-product-id="<?php echo $listingId; ?>"
                                 data-listing-id="<?php echo $listingId; ?>"
+                                data-seller-id="<?php echo $sellerId; ?>"
                                 data-name="<?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?>"
                                 data-category="<?php echo htmlspecialchars($category, ENT_QUOTES, 'UTF-8'); ?>"
                                 data-price="PHP <?php echo number_format($price, 2); ?>"
@@ -184,7 +185,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
               <h3 class="bh-product-title" id="bhPreviewTitle"></h3>
               <div class="bh-product-price" id="bhPreviewPrice"></div>
             </div>
-            <div class="bh-product-seller" id="bhPreviewShop" hidden><i class="bi bi-shop"></i> <span id="bhPreviewShopName"></span></div>
+                        <div class="bh-product-seller" id="bhPreviewShop" hidden>
+                            <a class="bh-shop-link" id="bhPreviewShopLink" href="#">
+                                <i class="bi bi-shop"></i>
+                                <span id="bhPreviewShopName"></span>
+                            </a>
+                        </div>
             <div class="bh-product-meta"><span class="bh-product-badge" id="bhPreviewCategory"></span></div>
             <form class="bh-preview-form" onsubmit="return false;">
               <label class="bh-preview-label" for="bhPreviewDescription">Description</label>
@@ -232,6 +238,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="product-preview.js"></script>
+    <script src="product-preview.js?v=20260506"></script>
 </body>
 </html>

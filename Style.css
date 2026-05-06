@@ -21,6 +21,7 @@
 body.auth-page {
 	margin: 0;
 	min-height: 100vh;
+	min-height: 100dvh;
 	font-family: "Montserrat", sans-serif;
 	background:
 		url("Assets/Background.png") center/cover no-repeat fixed;
@@ -28,7 +29,7 @@ body.auth-page {
 	overflow-x: hidden;
 	display: grid;
 	place-items: center;
-	padding: 2rem;
+	padding: 1.5rem;
 	position: relative;
 }
 
@@ -38,7 +39,8 @@ body.auth-page::after {
 
 .auth-card {
 	width: min(800px, 100%);
-	height: min(700px, calc(100vh - 4rem));
+	height: min(800px, calc(100vh - 3rem));
+	height: min(800px, calc(100dvh - 3rem));
 	min-height: 540px;
 	background: var(--panel-bg);
 	border-radius: 10px;
@@ -66,7 +68,7 @@ body.auth-page::after {
 	display: grid;
 	place-items: center;
 	background: #fff;
-	padding: 2rem 1.5rem;
+	padding: 1.5rem 1.25rem;
 }
 
 .form-shell {
@@ -82,10 +84,18 @@ body.auth-page::after {
 
 .form-shell header p {
 	margin-top: 0.35rem;
-	margin-bottom: 1.95rem;
+	margin-bottom: 1.25rem;
 	font-size: 0.74rem;
 	color: #964B00;
 	letter-spacing: 0.01em;
+}
+
+body.auth-page .form-shell .mb-3 {
+	margin-bottom: 0.75rem !important;
+}
+
+body.auth-page .form-shell .mb-2 {
+	margin-bottom: 0.55rem !important;
 }
 
 body.auth-page .form-label {
@@ -108,7 +118,7 @@ body.auth-page .form-control:focus {
 	box-shadow: 0 0 0 1px rgba(122, 201, 235, 0.15);
 }
 
-body.auth-page .form-control[type="password"] {
+body.auth-page .form-control.auth-underline {
 	border-top: 0;
 	border-left: 0;
 	border-right: 0;
@@ -145,7 +155,7 @@ body.auth-page .form-control[type="password"] {
 	align-items: center;
 	justify-content: center;
 	gap: 0.55rem;
-	margin: 0.95rem 0;
+	margin: 0.7rem 0;
 	font-size: 0.74rem;
 	color: #964B00;
 }
@@ -195,7 +205,7 @@ body.auth-page .form-control[type="password"] {
 }
 
 .signup-note {
-	margin-top: 0.85rem;
+	margin-top: 0.35rem;
 	font-size: 0.74rem;
 	text-align: center;
 	color: #8b8b8b;
@@ -1344,6 +1354,15 @@ body.admin-sidebar-collapsed .admin-sidebar {
 
 .bh-shop-link:hover {
 	text-decoration: underline;
+}
+
+.bh-shop-link.is-disabled {
+	cursor: default;
+	text-decoration: none;
+}
+
+.bh-shop-link.is-disabled:hover {
+	text-decoration: none;
 }
 
 .bh-shop-link:focus-visible {

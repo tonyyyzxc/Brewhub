@@ -48,7 +48,7 @@ $loginError = trim((string) ($_GET['error'] ?? ''));
 
 						<div class="mb-3">
 							<label for="password" class="form-label">Password</label>
-							<input id="password" name="password" type="password" class="form-control border-0 border-bottom rounded-0"  required>
+							<input id="password" name="password" type="password" class="form-control auth-underline border-0 border-bottom rounded-0"  required>
 						</div>
 
 						<div class="text-end mb-3">

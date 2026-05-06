@@ -33,7 +33,7 @@ $googleConfigured = defined('GOOGLE_CLIENT_ID') && defined('GOOGLE_CLIENT_SECRET
 			<section class="col-lg-7 auth-pane">
 				<div class="form-shell">
 					<header class="text-center">
-						<img src="Assets/Brew_Hub.png" alt="" style="width: 150px; height: 150px;">
+							<img src="Assets/Brew_Hub.png" alt="" style="width: 50px; height: 50px;">
 						<h1>Create Account</h1>
 						<p>Join Brewhub to manage your coffee shop essentials</p>
 					</header>
@@ -57,12 +57,12 @@ $googleConfigured = defined('GOOGLE_CLIENT_ID') && defined('GOOGLE_CLIENT_SECRET
 
 						<div class="mb-3">
 							<label for="email" class="form-label">Email</label>
-							<input id="email" name="email" type="email" class="form-control border-0 border-bottom rounded-0" required>
+							<input id="email" name="email" type="email" class="form-control" required>
 						</div>
 
 						<div class="mb-3">
 							<label for="password" class="form-label">Password</label>
-							<input id="password" name="password" type="password" class="form-control border-0 border-bottom rounded-0" required>
+							<input id="password" name="password" type="password" class="form-control" required>
 						</div>
 
 						<?php if ($recaptchaSiteKey !== ''): ?>

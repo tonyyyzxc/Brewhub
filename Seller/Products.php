@@ -175,7 +175,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 					$stmt->execute();
 					$stmt->close();
 					$conn->commit();
-					header('Location: Products.php');
+					header('Location: Products.php?success=added');
 					exit;
 				} catch (Throwable $e) {
 					$conn->rollback();
@@ -202,7 +202,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 					if ($imagePath !== null && $oldImage !== '') {
 						tryDeleteUploadedImage($oldImage);
 					}
-					header('Location: Products.php');
+					header('Location: Products.php?success=updated');
 					exit;
 				} catch (Throwable $e) {
 					$conn->rollback();
@@ -214,6 +214,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $products = bh_fetch_listings($conn, null, $sellerId);
+$successMsg = match ($_GET['success'] ?? '') {
+	'added'   => 'Product has been added successfully!',
+	'updated' => 'Product has been updated successfully!',
+	default   => '',
+};
 ?>
 <!DOCTYPE html>
 <html>
@@ -383,7 +388,19 @@ $products = bh_fetch_listings($conn, null, $sellerId);
 		</div>
 	</footer>
 
+	<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:9999;">
+		<div id="sellerToast" class="toast align-items-center text-white border-0" role="alert" style="background-color:#2fc31f;">
+			<div class="d-flex">
+				<div class="toast-body"><i class="bi bi-check-circle me-2"></i><?php echo htmlspecialchars($successMsg, ENT_QUOTES, 'UTF-8'); ?></div>
+				<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+			</div>
+		</div>
+	</div>
+
 	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+	<?php if ($successMsg !== ''): ?>
+	<script>document.addEventListener('DOMContentLoaded', function () { new bootstrap.Toast(document.getElementById('sellerToast'), { delay: 3500 }).show(); });</script>
+	<?php endif; ?>
 	<script>
 		window.sellerProducts = <?php echo json_encode($products, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 	</script>

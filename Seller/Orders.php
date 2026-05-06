@@ -115,9 +115,6 @@ $stmt->close();
 
 			<section class="seller-section-card mb-4">
 				<h2 class="seller-section-heading mb-3"><i class="bi bi-bag-check me-2"></i>Orders</h2>
-				<?php if ($flash): ?>
-					<div class="alert alert-<?php echo $flash['type']; ?> border-0" role="alert"><?php echo htmlspecialchars($flash['text'], ENT_QUOTES, 'UTF-8'); ?></div>
-				<?php endif; ?>
 				<div class="table-responsive">
 					<table class="table seller-table align-middle">
 						<thead>
@@ -191,6 +188,26 @@ $stmt->close();
 		</div>
 	</footer>
 
+	<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:9999;">
+		<div id="sellerToast" class="toast align-items-center text-white border-0" role="alert"
+			style="background-color:<?php echo ($flash['type'] ?? '') === 'success' ? '#2fc31f' : '#dc3545'; ?>">
+			<div class="d-flex">
+				<div class="toast-body">
+					<i class="bi <?php echo ($flash['type'] ?? '') === 'success' ? 'bi-check-circle' : 'bi-exclamation-circle'; ?> me-2"></i>
+					<?php echo htmlspecialchars(($flash['text'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
+				</div>
+				<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+			</div>
+		</div>
+	</div>
+
 	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+	<?php if ($flash): ?>
+	<script>
+		document.addEventListener('DOMContentLoaded', function () {
+			new bootstrap.Toast(document.getElementById('sellerToast'), { delay: 3000 }).show();
+		});
+	</script>
+	<?php endif; ?>
 </body>
 </html>
