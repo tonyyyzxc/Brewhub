@@ -1,10 +1,5 @@
 <?php
 
-
-
-/////ambot 
-
-
 session_start();
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/auth_helpers.php';
@@ -52,10 +47,6 @@ $tokenResponse = bh_http_post(
 	]),
 	['Content-Type: application/x-www-form-urlencoded']
 );
-
-if ($tokenResponse === null) {
-	bh_google_login_error('Could not verify your Google sign-in.');
-}
 
 $tokenData = json_decode($tokenResponse, true);
 if (!is_array($tokenData) || empty($tokenData['access_token'])) {
@@ -122,4 +113,3 @@ if (($user['role'] ?? '') === 'admin') {
 bh_set_login_session($user);
 header('Location: ' . bh_role_redirect((string) ($user['role'] ?? 'buyer')));
 exit;
-
