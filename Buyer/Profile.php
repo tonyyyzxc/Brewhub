@@ -58,15 +58,38 @@ if ($stmt) {
 
 // Latest seller request status for UI state
 $sellerRequestStatus = null;
-$stmt = $conn->prepare("SELECT status FROM seller_requests WHERE user_id = ? ORDER BY request_id DESC LIMIT 1");
+$sellerRequestRemarks = '';
+$sellerRequestCheckedAt = null;
+
+$hasSellerRequestRemarksColumn = false;
+$stmt = $conn->prepare("SELECT COUNT(*) AS cnt FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'seller_requests' AND COLUMN_NAME = 'admin_remarks'");
 if ($stmt) {
-    $stmt->bind_param('i', $userId);
-    $stmt->execute();
-    $stmt->bind_result($srStatus);
-    if ($stmt->fetch()) {
-        $sellerRequestStatus = strtolower((string) $srStatus);
-    }
-    $stmt->close();
+	$stmt->execute();
+	$hasSellerRequestRemarksColumn = (int) (($stmt->get_result()->fetch_assoc()['cnt'] ?? 0)) > 0;
+	$stmt->close();
+}
+
+$stmt = $hasSellerRequestRemarksColumn
+	? $conn->prepare("SELECT status, admin_remarks, created_at FROM seller_requests WHERE user_id = ? ORDER BY request_id DESC LIMIT 1")
+	: $conn->prepare("SELECT status, created_at FROM seller_requests WHERE user_id = ? ORDER BY request_id DESC LIMIT 1");
+if ($stmt) {
+	$stmt->bind_param('i', $userId);
+	$stmt->execute();
+	if ($hasSellerRequestRemarksColumn) {
+		$stmt->bind_result($srStatus, $srRemarks, $srCreatedAt);
+		if ($stmt->fetch()) {
+			$sellerRequestStatus = strtolower((string) $srStatus);
+			$sellerRequestRemarks = trim((string) $srRemarks);
+			$sellerRequestCheckedAt = $srCreatedAt ? (string) $srCreatedAt : null;
+		}
+	} else {
+		$stmt->bind_result($srStatus, $srCreatedAt);
+		if ($stmt->fetch()) {
+			$sellerRequestStatus = strtolower((string) $srStatus);
+			$sellerRequestCheckedAt = $srCreatedAt ? (string) $srCreatedAt : null;
+		}
+	}
+	$stmt->close();
 }
 $roleLabel = match (strtolower($profile['role'])) {
     'both' => 'Seller/Buyer',
@@ -194,6 +217,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                                     <h1 class="profile-title h3 mb-0">My Profile</h1>
                                 </div>
                             </div>
+
+                            <?php if ($sellerRequestStatus === 'rejected'): ?>
+                                <div class="alert alert-warning mb-4" role="alert">
+                                    <div class="d-flex gap-2">
+                                        <i class="bi bi-exclamation-circle"></i>
+                                        <div>
+                                            <div class="fw-semibold">Your seller application was declined.</div>
+                                            <?php if ($sellerRequestRemarks !== ''): ?>
+                                                <div class="small mt-1">Remarks: <?php echo htmlspecialchars($sellerRequestRemarks, ENT_QUOTES, 'UTF-8'); ?></div>
+                                            <?php else: ?>
+                                                <div class="small mt-1">Remarks are not available.</div>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
 
                             <?php if ($isEditMode): ?>
                             <form method="POST" class="mb-4">

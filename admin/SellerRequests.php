@@ -11,6 +11,29 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['role'] !== 'admin') {
 
 $toast = null;
 
+function seller_requests_column_exists(mysqli $conn, string $columnName): bool {
+        $sql = "SELECT COUNT(*) AS cnt
+                        FROM INFORMATION_SCHEMA.COLUMNS
+                        WHERE TABLE_SCHEMA = DATABASE()
+                            AND TABLE_NAME = 'seller_requests'
+                            AND COLUMN_NAME = ?";
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) return false;
+        $stmt->bind_param('s', $columnName);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        return ((int) ($row['cnt'] ?? 0)) > 0;
+}
+
+function seller_requests_ensure_column(mysqli $conn, string $columnName, string $alterSql): void {
+    if (seller_requests_column_exists($conn, $columnName)) {
+        return;
+    }
+    // Best-effort: if the DB user can't ALTER, we simply won't persist remarks.
+    @$conn->query("ALTER TABLE seller_requests $alterSql");
+}
+
 // ── Handle approve / reject / delete ─────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action    = (string) ($_POST['action']     ?? '');
@@ -80,13 +103,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
     } elseif ($action === 'reject') {
-        $stmt = $conn->prepare("UPDATE seller_requests SET status = 'rejected' WHERE request_id = ?");
-        $stmt->bind_param('i', $requestId);
-        $ok = $stmt->execute();
-        $stmt->close();
-        $toast = $ok
-            ? ['type' => 'warning', 'text' => 'Seller request rejected.']
-            : ['type' => 'danger',  'text' => 'Request not found.'];
+        $remarks = trim((string) ($_POST['remarks'] ?? ''));
+        if ($remarks === '') {
+            $toast = ['type' => 'danger', 'text' => 'Remarks are required to reject a seller request.'];
+        } else {
+            seller_requests_ensure_column($conn, 'admin_remarks', "ADD COLUMN admin_remarks TEXT NULL AFTER address");
+            if (seller_requests_column_exists($conn, 'admin_remarks')) {
+                $stmt = $conn->prepare("UPDATE seller_requests SET status = 'rejected', admin_remarks = ? WHERE request_id = ?");
+                $stmt->bind_param('si', $remarks, $requestId);
+            } else {
+                $stmt = $conn->prepare("UPDATE seller_requests SET status = 'rejected' WHERE request_id = ?");
+                $stmt->bind_param('i', $requestId);
+            }
+            $ok = $stmt->execute();
+            $stmt->close();
+            $toast = $ok
+                ? ['type' => 'warning', 'text' => 'Seller request rejected.']
+                : ['type' => 'danger',  'text' => 'Request not found.'];
+        }
 
     } elseif ($action === 'delete') {
         $stmt = $conn->prepare("DELETE FROM seller_requests WHERE request_id = ?");
@@ -287,14 +321,14 @@ foreach ($requests as $r) {
                                                             <i class="bi bi-check2-circle me-1"></i>Approve
                                                         </button>
                                                     </form>
-                                                    <form method="POST" style="display:inline;"
-                                                        onsubmit="return confirm('Reject this seller request?');">
-                                                        <input type="hidden" name="action" value="reject">
-                                                        <input type="hidden" name="request_id" value="<?php echo (int) $r['request_id']; ?>">
-                                                        <button type="submit" class="btn admin-btn admin-btn-ghost btn-sm">
-                                                            <i class="bi bi-x-circle me-1"></i>Reject
-                                                        </button>
-                                                    </form>
+
+										<button type="button"
+											class="btn admin-btn admin-btn-ghost btn-sm js-reject-btn"
+											data-request-id="<?php echo (int) $r['request_id']; ?>"
+											data-applicant="<?php echo htmlspecialchars($r['full_name'], ENT_QUOTES, 'UTF-8'); ?>"
+											data-shop="<?php echo htmlspecialchars($r['shop_name'], ENT_QUOTES, 'UTF-8'); ?>">
+											<i class="bi bi-x-circle me-1"></i>Reject
+										</button>
                                                     <?php endif; ?>
                                                     <form method="POST" style="display:inline;"
                                                         onsubmit="return confirm('Delete this request permanently?');">
@@ -344,11 +378,66 @@ foreach ($requests as $r) {
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Reject with remarks modal -->
+    <div class="modal fade" id="rejectModal" tabindex="-1" aria-labelledby="rejectModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form method="POST" id="rejectForm">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="rejectModalLabel">Reject Seller Request</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" name="action" value="reject">
+                        <input type="hidden" name="request_id" id="rejectRequestId" value="">
+
+                        <div class="text-muted small mb-2">
+                            Applicant: <span class="fw-semibold" id="rejectApplicant">-</span><br>
+                            Shop: <span class="fw-semibold" id="rejectShop">-</span>
+                        </div>
+
+                        <label for="rejectRemarks" class="form-label">Remarks (required)</label>
+                        <textarea class="form-control" id="rejectRemarks" name="remarks" rows="3" required maxlength="500" placeholder="Explain why this request is being rejected..."></textarea>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn admin-btn admin-btn-ghost" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn admin-btn admin-btn-danger">Reject</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const toastEl = document.getElementById('bhToast');
             if (toastEl && window.bootstrap && bootstrap.Toast) {
                 new bootstrap.Toast(toastEl).show();
+            }
+
+            const rejectModalEl = document.getElementById('rejectModal');
+            const rejectRequestIdEl = document.getElementById('rejectRequestId');
+            const rejectApplicantEl = document.getElementById('rejectApplicant');
+            const rejectShopEl = document.getElementById('rejectShop');
+            const rejectRemarksEl = document.getElementById('rejectRemarks');
+
+            if (rejectModalEl && window.bootstrap && bootstrap.Modal) {
+                const rejectModal = new bootstrap.Modal(rejectModalEl);
+                document.querySelectorAll('.js-reject-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const requestId = btn.getAttribute('data-request-id') ?? '';
+                        const applicant = btn.getAttribute('data-applicant') ?? '-';
+                        const shop = btn.getAttribute('data-shop') ?? '-';
+
+                        rejectRequestIdEl.value = requestId;
+                        rejectApplicantEl.textContent = applicant;
+                        rejectShopEl.textContent = shop;
+                        rejectRemarksEl.value = '';
+                        rejectModal.show();
+                        setTimeout(() => rejectRemarksEl.focus(), 150);
+                    });
+                });
             }
         });
 

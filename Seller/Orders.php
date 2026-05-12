@@ -12,9 +12,26 @@ $sellerProfile = bh_fetch_seller_profile($conn, $sellerId);
 $flash = null;
 bh_ensure_checkout_columns($conn);
 
+function bh_orders_column_exists(mysqli $conn, string $columnName): bool
+{
+	$sql = "SELECT COUNT(*) AS cnt
+			FROM INFORMATION_SCHEMA.COLUMNS
+			WHERE TABLE_SCHEMA = DATABASE()
+				AND TABLE_NAME = 'orders'
+				AND COLUMN_NAME = ?";
+	$stmt = $conn->prepare($sql);
+	if (!$stmt) return false;
+	$stmt->bind_param('s', $columnName);
+	$stmt->execute();
+	$row = $stmt->get_result()->fetch_assoc();
+	$stmt->close();
+	return ((int) ($row['cnt'] ?? 0)) > 0;
+}
+
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 	$orderId = (int) ($_POST['order_id'] ?? 0);
 	$status = strtolower(trim((string) ($_POST['status'] ?? 'pending')));
+	$remarks = trim((string) ($_POST['remarks'] ?? ''));
 	$allowedStatuses = ['pending', 'completed', 'cancelled'];
 
 	if ($orderId > 0 && in_array($status, $allowedStatuses, true)) {
@@ -30,11 +47,20 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 		$checkStmt->close();
 
 		if ($ownsOrder) {
-			$updateStmt = $conn->prepare("UPDATE orders SET status = ? WHERE order_id = ?");
-			$updateStmt->bind_param('si', $status, $orderId);
-			$updateStmt->execute();
-			$updateStmt->close();
-			$flash = ['type' => 'success', 'text' => 'Order status updated.'];
+			if ($status === 'cancelled' && $remarks === '') {
+				$flash = ['type' => 'danger', 'text' => 'Remarks are required to cancel an order.'];
+			} else {
+				if ($status === 'cancelled' && bh_orders_column_exists($conn, 'cancel_remarks')) {
+					$updateStmt = $conn->prepare("UPDATE orders SET status = ?, cancel_remarks = ? WHERE order_id = ?");
+					$updateStmt->bind_param('ssi', $status, $remarks, $orderId);
+				} else {
+					$updateStmt = $conn->prepare("UPDATE orders SET status = ? WHERE order_id = ?");
+					$updateStmt->bind_param('si', $status, $orderId);
+				}
+				$updateStmt->execute();
+				$updateStmt->close();
+				$flash = ['type' => 'success', 'text' => 'Order status updated.'];
+			}
 		} else {
 			$flash = ['type' => 'danger', 'text' => 'Order not found for this seller.'];
 		}
@@ -144,7 +170,7 @@ $stmt->close();
 										<td><?php echo (int) ($order['quantity'] ?? 0); ?></td>
 										<td>PHP <?php echo number_format((float) ($order['subtotal'] ?? 0), 2); ?></td>
 										<td>
-											<form method="post" class="d-flex gap-2 align-items-center">
+											<form method="post" class="d-flex gap-2 align-items-center js-order-status-form">
 												<input type="hidden" name="order_id" value="<?php echo (int) $order['order_id']; ?>">
 												<select name="status" class="form-select seller-form-control">
 													<option value="pending" <?php echo ((string) ($order['status'] ?? '')) === 'pending' ? 'selected' : ''; ?>>Pending</option>
@@ -202,6 +228,59 @@ $stmt->close();
 	</div>
 
 	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+
+	<div class="modal fade" id="cancelOrderModal" tabindex="-1" aria-labelledby="cancelOrderModalLabel" aria-hidden="true">
+		<div class="modal-dialog modal-dialog-centered">
+			<div class="modal-content">
+				<form method="post" id="cancelOrderForm">
+					<div class="modal-header">
+						<h5 class="modal-title" id="cancelOrderModalLabel">Cancel Order</h5>
+						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+					</div>
+					<div class="modal-body">
+						<input type="hidden" name="order_id" id="cancelOrderId" value="">
+						<input type="hidden" name="status" value="cancelled">
+						<div class="text-muted small mb-2">Order: <span class="fw-semibold" id="cancelOrderLabel">-</span></div>
+						<label for="cancelRemarks" class="form-label">Remarks (required)</label>
+						<textarea class="form-control" id="cancelRemarks" name="remarks" rows="3" required maxlength="500" placeholder="Why is this order being cancelled?"></textarea>
+					</div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-sm profile-btn profile-btn-edit" data-bs-dismiss="modal">Back</button>
+						<button type="submit" class="btn btn-sm btn-danger"><i class="bi bi-x-circle me-1"></i>Cancel Order</button>
+					</div>
+				</form>
+			</div>
+		</div>
+	</div>
+
+	<script>
+		document.addEventListener('DOMContentLoaded', function () {
+			const modalEl = document.getElementById('cancelOrderModal');
+			if (!modalEl || !window.bootstrap || !bootstrap.Modal) return;
+
+			const modal = new bootstrap.Modal(modalEl);
+			const orderIdEl = document.getElementById('cancelOrderId');
+			const orderLabelEl = document.getElementById('cancelOrderLabel');
+			const remarksEl = document.getElementById('cancelRemarks');
+
+			document.querySelectorAll('form.js-order-status-form').forEach(form => {
+				form.addEventListener('submit', function (e) {
+					const statusSelect = form.querySelector('select[name="status"]');
+					const orderIdInput = form.querySelector('input[name="order_id"]');
+					if (!statusSelect || !orderIdInput) return;
+
+					if ((statusSelect.value || '').toLowerCase() !== 'cancelled') return;
+
+					e.preventDefault();
+					orderIdEl.value = orderIdInput.value;
+					orderLabelEl.textContent = '#' + orderIdInput.value;
+					remarksEl.value = '';
+					modal.show();
+					setTimeout(() => remarksEl.focus(), 150);
+				});
+			});
+		});
+	</script>
 	<?php if ($flash): ?>
 	<script>
 		document.addEventListener('DOMContentLoaded', function () {

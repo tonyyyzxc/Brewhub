@@ -1,7 +1,5 @@
 <?php
 require_once __DIR__ . '/includes/app_keys.php';
-
-$recaptchaSiteKey = defined('RECAPTCHA_SITE_KEY') ? trim((string) RECAPTCHA_SITE_KEY) : '';
 $googleConfigured = defined('GOOGLE_CLIENT_ID') && defined('GOOGLE_CLIENT_SECRET')
 	&& trim((string) GOOGLE_CLIENT_ID) !== ''
 	&& trim((string) GOOGLE_CLIENT_SECRET) !== '';
@@ -18,12 +16,9 @@ $googleConfigured = defined('GOOGLE_CLIENT_ID') && defined('GOOGLE_CLIENT_SECRET
 	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
 	<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 	<link href="Style.css" rel="stylesheet">
-	<?php if ($recaptchaSiteKey !== ''): ?>
-	<script src="https://www.google.com/recaptcha/api.js" async defer></script>
-	<?php endif; ?>
 </head>
 
-<body class="auth-page">
+<body class="auth-page auth-signup">
 	<main class="auth-card container-fluid p-0">
 		<div class="row g-0 h-100">
 			<aside class="col-lg-5 auth-visual">
@@ -65,12 +60,6 @@ $googleConfigured = defined('GOOGLE_CLIENT_ID') && defined('GOOGLE_CLIENT_SECRET
 							<input id="password" name="password" type="password" class="form-control" required>
 						</div>
 
-						<?php if ($recaptchaSiteKey !== ''): ?>
-						<div class="recaptcha-wrap mb-3">
-							<div class="g-recaptcha" data-sitekey="<?php echo htmlspecialchars($recaptchaSiteKey, ENT_QUOTES, 'UTF-8'); ?>"></div>
-						</div>
-						<?php endif; ?>
-
 						<button type="submit" class="btn btn-login w-100">Sign Up</button>
 					</form>
 
@@ -94,19 +83,6 @@ $googleConfigured = defined('GOOGLE_CLIENT_ID') && defined('GOOGLE_CLIENT_SECRET
 	document.getElementById('signupForm').addEventListener('submit', function(e) {
 		e.preventDefault();
 
-		<?php if ($recaptchaSiteKey !== ''): ?>
-		const recaptchaResponse = grecaptcha.getResponse();
-		if (!recaptchaResponse) {
-			Swal.fire({
-				icon: 'warning',
-				title: 'reCAPTCHA Required',
-				text: 'Please complete the reCAPTCHA before signing up.',
-				confirmButtonColor: '#f0ad4e'
-			});
-			return;
-		}
-		<?php endif; ?>
-
 		const formData = new FormData(this);
 
 		fetch('signUp-validate.php', {
@@ -126,9 +102,6 @@ $googleConfigured = defined('GOOGLE_CLIENT_ID') && defined('GOOGLE_CLIENT_SECRET
 					window.location.href = 'Login.php';
 				});
 			} else if (data.status === 'exists') {
-				<?php if ($recaptchaSiteKey !== ''): ?>
-				if (window.grecaptcha) grecaptcha.reset();
-				<?php endif; ?>
 				Swal.fire({
 					icon: 'warning',
 					title: 'Email Already Exists!',
@@ -137,9 +110,6 @@ $googleConfigured = defined('GOOGLE_CLIENT_ID') && defined('GOOGLE_CLIENT_SECRET
 					confirmButtonColor: '#f0ad4e'
 				});
 			} else {
-				<?php if ($recaptchaSiteKey !== ''): ?>
-				if (window.grecaptcha) grecaptcha.reset();
-				<?php endif; ?>
 				Swal.fire({
 					icon: 'error',
 					title: 'Oops!',
@@ -150,9 +120,6 @@ $googleConfigured = defined('GOOGLE_CLIENT_ID') && defined('GOOGLE_CLIENT_SECRET
 			}
 		})
 		.catch(error => {
-			<?php if ($recaptchaSiteKey !== ''): ?>
-			if (window.grecaptcha) grecaptcha.reset();
-			<?php endif; ?>
 			Swal.fire({
 				icon: 'error',
 				title: 'Connection Error',

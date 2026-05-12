@@ -11,25 +11,53 @@ $buyerId = bh_current_user_id();
 $cartCount = bh_cart_count($conn, $buyerId);
 bh_ensure_checkout_columns($conn);
 
+$hasCancelRemarks = false;
+$colStmt = $conn->prepare("SELECT COUNT(*) AS cnt FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'orders' AND COLUMN_NAME = 'cancel_remarks'");
+if ($colStmt) {
+  $colStmt->execute();
+  $hasCancelRemarks = (int) (($colStmt->get_result()->fetch_assoc()['cnt'] ?? 0)) > 0;
+  $colStmt->close();
+}
+
 $orders = [];
-$stmt = $conn->prepare("
-  SELECT
-    o.order_id,
-    o.customer_name,
-    o.customer_phone,
-    o.customer_address,
-    o.payment_method,
-    o.total_amount,
-    o.status,
-    o.order_date,
-    u.FirstName,
-    u.LastName,
-    u.email
-  FROM orders o
-  JOIN users u ON o.buyer_id = u.user_id
-  WHERE o.buyer_id = ?
-  ORDER BY o.order_date DESC
-");
+$stmt = $conn->prepare($hasCancelRemarks
+  ? "
+    SELECT
+      o.order_id,
+      o.customer_name,
+      o.customer_phone,
+      o.customer_address,
+      o.payment_method,
+      o.total_amount,
+      o.status,
+      o.cancel_remarks,
+      o.order_date,
+      u.FirstName,
+      u.LastName,
+      u.email
+    FROM orders o
+    JOIN users u ON o.buyer_id = u.user_id
+    WHERE o.buyer_id = ?
+    ORDER BY o.order_date DESC
+  "
+  : "
+    SELECT
+      o.order_id,
+      o.customer_name,
+      o.customer_phone,
+      o.customer_address,
+      o.payment_method,
+      o.total_amount,
+      o.status,
+      o.order_date,
+      u.FirstName,
+      u.LastName,
+      u.email
+    FROM orders o
+    JOIN users u ON o.buyer_id = u.user_id
+    WHERE o.buyer_id = ?
+    ORDER BY o.order_date DESC
+  ");
 $stmt->bind_param('i', $buyerId);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -72,6 +100,7 @@ while ($row = $result->fetch_assoc()) {
     'total' => (float) $row['total_amount'],
     'payment' => strtoupper((string) ($row['payment_method'] ?: 'cod')),
     'status' => $status,
+  	'cancel_remarks' => $hasCancelRemarks ? (string) ($row['cancel_remarks'] ?? '') : '',
     'customer_name' => trim((string) ($row['customer_name'] ?: trim((string) $row['FirstName'] . ' ' . (string) $row['LastName']))),
     'customer_phone' => (string) ($row['customer_phone'] ?: 'Not provided'),
     'customer_address' => (string) ($row['customer_address'] ?: 'Not provided'),
@@ -226,6 +255,10 @@ $stmt->close();
               <p class="mb-2"><strong>Total Amount:</strong> <span id="modalTotal"></span></p>
             </div>
           </div>
+		  <div id="modalCancelRemarksWrap" class="alert alert-warning py-2" style="display:none;">
+			<strong>Cancellation reason:</strong>
+			<span id="modalCancelRemarks"></span>
+		  </div>
           <hr>
           <h6 class="mb-3">Customer Information</h6>
           <p class="mb-2"><strong>Name:</strong> <span id="modalCustomerName"></span></p>
@@ -256,6 +289,16 @@ $stmt->close();
         document.getElementById('modalOrderStatus').textContent = order.status;
         document.getElementById('modalPayment').textContent = order.payment;
         document.getElementById('modalTotal').innerHTML = `<strong>PHP ${parseFloat(order.total).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}</strong>`;
+    const remarksWrap = document.getElementById('modalCancelRemarksWrap');
+    const remarksEl = document.getElementById('modalCancelRemarks');
+    const remarks = (order.cancel_remarks || '').trim();
+    if ((order.status || '').toLowerCase() === 'cancelled' && remarks !== '') {
+      remarksEl.textContent = remarks;
+      remarksWrap.style.display = '';
+    } else {
+      remarksEl.textContent = '';
+      remarksWrap.style.display = 'none';
+    }
         document.getElementById('modalCustomerName').textContent = order.customer_name;
         document.getElementById('modalCustomerPhone').textContent = order.customer_phone;
         document.getElementById('modalCustomerAddress').textContent = order.customer_address;

@@ -34,7 +34,7 @@ $loginError = trim((string) ($_GET['error'] ?? ''));
 			<section class="col-lg-7 auth-pane">
 				<div class="form-shell">
 					<header class="text-center">
-						<img src="Assets/Brew_Hub.png" alt="" Style="width: 150px; height: 150px;">
+						<img src="Assets/Brew_Hub.png" alt="" Style="width: 80px; height: 80px;">
 						<h1>Brewhub</h1>
 						<p>Your Shop's One-Stop Supply</p>
 					</header>

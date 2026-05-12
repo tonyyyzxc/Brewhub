@@ -52,6 +52,7 @@ body.auth-page::after {
 .auth-visual {
 	position: relative;
 	height: 100%;
+	min-height: 0;
 	overflow: hidden;
 	background: #000;
 }
@@ -65,8 +66,12 @@ body.auth-page::after {
 }
 .auth-pane {
 	height: 100%;
-	display: grid;
-	place-items: center;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	overflow-y: auto;
 	background: #fff;
 	padding: 1.5rem 1.25rem;
 }
@@ -2751,6 +2756,10 @@ body.admin-sidebar-collapsed .admin-sidebar {
 }
 
 @media (max-width: 991.98px) {
+	body.auth-page {
+		place-items: start center;
+	}
+
 	.auth-card {
 		height: auto;
 	}
@@ -2792,6 +2801,39 @@ body.admin-sidebar-collapsed .admin-sidebar {
 	}
 }
 
+@media (min-width: 992px) {
+	body.auth-signup .auth-pane {
+		overflow-y: hidden;
+	}
+}
+
+@media (min-width: 992px) and (max-height: 850px) {
+	body.auth-page {
+		padding: 1rem;
+	}
+
+	.auth-card {
+		height: min(800px, calc(100vh - 2rem));
+		height: min(800px, calc(100dvh - 2rem));
+	}
+
+	body.auth-signup .auth-pane {
+		padding: 1.15rem 1.15rem;
+	}
+
+	body.auth-signup .form-shell header p {
+		margin-bottom: 0.85rem;
+	}
+
+	body.auth-signup .or-divider {
+		margin: 0.5rem 0;
+	}
+
+	body.auth-signup .signup-note {
+		margin-top: 0.25rem;
+	}
+}
+
 /* Shop name link on product cards */
 .bh-shop-link {
     color: inherit;
@@ -2806,6 +2848,7 @@ body.admin-sidebar-collapsed .admin-sidebar {
 .recaptcha-wrap {
     display: flex;
     justify-content: center;
+	overflow: hidden;
     margin-top: 10px;
 }
 

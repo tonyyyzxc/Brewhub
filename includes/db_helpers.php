@@ -226,6 +226,7 @@ function bh_ensure_checkout_columns(mysqli $conn): void
 		'customer_phone'   => "ADD COLUMN customer_phone VARCHAR(30) NULL AFTER customer_name",
 		'customer_address' => "ADD COLUMN customer_address TEXT NULL AFTER customer_phone",
 		'payment_method'   => "ADD COLUMN payment_method ENUM('cod','online') NULL AFTER customer_address",
+		'cancel_remarks'   => "ADD COLUMN cancel_remarks TEXT NULL AFTER status",
 	];
 
 	foreach ($columns as $column => $alterSql) {
